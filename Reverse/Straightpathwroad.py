@@ -1,3 +1,4 @@
+#Code with straight path, dynamic global planning & parking spot location. 
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
@@ -27,7 +28,10 @@ D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
 N_S_SAMPLE = 1  # sampling number of target speed
 ego_length = 5 #car_length [m]
 ego_width = 2 #car_width [m]
-
+parkx = 30.0 # x coordinate for the parking 
+parky = -5.0 # y coordinate for the parking 
+pspot_length = 6.0
+psport_breadth = 4.0
 # cost weights
 K_J = 0.1
 K_T = 0.1
@@ -240,22 +244,38 @@ def generate_target_course(x, y):
         rk.append(csp.calc_curvature(i_s))
 
     return rx, ry, ryaw, rk, csp
-
+#def calculateB()
+def calculate_waypoints(parkx, wy_value=0.0, interval=10):
+   
+    # Generate wx values from 0 to parking_x + 5 with the specified interval
+    wx = [i for i in range(0, int(parkx + 25.0) + 1, interval)]
+    
+    # Ensure the last waypoint reaches exactly parking_x + 5
+    if wx[-1] != parkx + 25.0:
+        wx.append(parkx + 25.0)
+    
+    # Create wy with the same number of elements as wx
+    wy = [wy_value] * len(wx)
+    
+    return wx, wy
 
 def main():
     def main():
         print(__file__ + " start!!")
 
     # way points
-    wx = [0.0, 10.0, 20.5, 35.0, 52.0, 67.0]
-    wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    wx, wy = calculate_waypoints(parkx)
+     #drawing parking space 
+    parkx_bottomleft = parkx - pspot_length/2 
+    parky_bottomleft = parky - psport_breadth/2 
+   
     #obstacle lists
     #ob = np.array([[6.0,0.0],[15.0, 0.0]])
 
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
 
     # initial state
-    c_speed = 50.0 / 3.6  # current speed [m/s]
+    c_speed = 30.0 / 3.6  # current speed [m/s]
     c_accel = 0.0  # current acceleration [m/ss]
     c_d = 0.0  # current lateral position [m]
     c_d_d = 0.0  # current lateral speed [m/s]
@@ -294,13 +314,15 @@ def main():
             plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
             
             px, py, yaw = path.x[1], path.y[1], path.yaw[1]
-            rectangle = plt.Rectangle(
+            ego_vehicle = plt.Rectangle(
                     (px - ego_length / 2, py - ego_width / 2),  # Bottom-left corner
                     ego_length,  
                     ego_width,   
                     edgecolor = 'Black'
                 )
-            plt.gca().add_patch(rectangle) 
+            parkingspot = plt.Rectangle((parkx_bottomleft,parky_bottomleft),pspot_length,psport_breadth,linewidth = 2, edgecolor = 'blue')
+            plt.gca().add_patch(parkingspot) 
+            plt.gca().add_patch(ego_vehicle) 
             plt.plot(path.x[1:], path.y[1:], "-or")
             plt.plot(path.x[1], path.y[1], "vc")
             plt.xlim(path.x[1] - area, path.x[1] + area)
