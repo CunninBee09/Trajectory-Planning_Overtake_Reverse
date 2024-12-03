@@ -15,11 +15,11 @@ road_width = 10  #meters
 obs_length = 5   #meters
 obs_width = 2    #meters
 dt = 0.2
-SIM_LOOP = 50
+SIM_LOOP = 500
 MAX_SPEED = 50.0 / 3.6  # maximum speed [m/s]
-MAX_ACCEL = 5.0  # maximum acceleration [m/ss]
-MAX_CURVATURE = 3.0  # maximum curvature [1/m]
-MAX_ROAD_WIDTH = 5.0  # maximum road width [m]
+MAX_ACCEL = 2.0  # maximum acceleration [m/ss]
+MAX_CURVATURE = 1.0  # maximum curvature [1/m]
+MAX_ROAD_WIDTH = 7.0  # maximum road width [m]
 D_ROAD_W = 1.0  # road width sampling length [m]
 DT = 0.2  # time tick [s]
 MAX_T = 5.0  # max prediction time [m]
@@ -27,14 +27,14 @@ MIN_T = 4.0  # min prediction time [m]
 TARGET_SPEED = 30.0 / 3.6  # target speed [m/s]
 D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
 N_S_SAMPLE = 1  # sampling number of target speed
-ROBOT_RADIUS = 0.5  # robot radius [m]
+ROBOT_RADIUS = 2.0  # robot radius [m]
 
 # cost weights
-K_J = 1
-K_T = 1
-K_D = 1
-K_LAT = 0.1
-K_LON = 0.1
+K_J = 0.1
+K_T = 0.1
+K_D = 1.0       
+K_LAT = 1.0 
+K_LON = 1.0
 
 show_animation = True
 
@@ -251,26 +251,26 @@ def calc_global_paths(fplist, csp):
 #     return True
 
 
-def check_paths(fplist, obs_path):
-    ok_ind = []
-    for i, _ in enumerate(fplist):
-        if any([v > MAX_SPEED for v in fplist[i].s_d]):  # Max speed check
-            continue
-        elif any([abs(a) > MAX_ACCEL for a in
-                  fplist[i].s_dd]):  # Max accel check
-            continue
-        elif any([abs(c) > MAX_CURVATURE for c in
-                  fplist[i].c]):  # Max curvature check
-            continue
-        elif not check_collision(fplist[i], obs_path):
-            continue
+# def check_paths(fplist, obs_path):
+#     ok_ind = []
+#     for i, _ in enumerate(fplist):
+#         if any([v > MAX_SPEED for v in fplist[i].s_d]):  # Max speed check
+#             continue
+#         elif any([abs(a) > MAX_ACCEL for a in
+#                   fplist[i].s_dd]):  # Max accel check
+#             continue
+#         elif any([abs(c) > MAX_CURVATURE for c in
+#                   fplist[i].c]):  # Max curvature check
+#             continue
+#         # elif not check_collision(fplist[i], obs_path):
+#         #     continue
 
-        ok_ind.append(i)
+#         ok_ind.append(i)
         
-        if not ok_ind:
-         print("All candidate paths failed constraints!")  
+#         if not ok_ind:
+#          print("All candidate paths failed constraints!")  
 
-    return [fplist[i] for i in ok_ind]
+#     return [fplist[i] for i in ok_ind]
     
 
 
@@ -293,23 +293,23 @@ def check_obs_paths(obslist):
     return [obslist[i] for i in ok_ind]
 
 
-def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path):
-    fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0)
-    fplist = calc_global_paths(fplist, csp)
-    fplist = check_paths(fplist, obs_path)
+# def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path):
+#     fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0)
+#     fplist = calc_global_paths(fplist, csp)
+#     fplist = check_paths(fplist, obs_path)
     
-    # find minimum cost path
-    min_cost = float("inf")
-    best_path = None
-    for fp in fplist:
-        if min_cost >= fp.cf:
-            min_cost = fp.cf
-            best_path = fp
+#     # find minimum cost path
+#     min_cost = float("inf")
+#     best_path = None
+#     for fp in fplist:
+#         if min_cost >= fp.cf:
+#             min_cost = fp.cf
+#             best_path = fp
     
-    if not fplist:
-     print("No valid paths generated after checking constraints!")
+#     if not fplist:
+#      print("No valid paths generated after checking constraints!")
 
-    return best_path
+#     return best_path
 
 def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd):
     obslist= calc_frenet_paths(obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, obs_s0)
@@ -345,8 +345,7 @@ def main():
     print(__file__ + " start!!")
     
     wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0]
-    wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    
+    wy = [0.0, 5.0, 10.0, 0.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
     area = 20.0
@@ -371,9 +370,6 @@ def main():
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
-        if obs_path is None:
-            print("Obstacle path planning failed!")
-            break
         
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
@@ -401,11 +397,10 @@ def main():
         if show_animation:  # pragma: no cover
             plt.cla()
             # for stopping simulation with the esc key.
-            # plt.gcf().canvas.mpl_connect(
-            #     'key_release_event',
-            #     lambda event: [exit(0) if event.key == 'escape' else None])
+            plt.gcf().canvas.mpl_connect(
+                'key_release_event',
+                lambda event: [exit(0) if event.key == 'escape' else None])
             plt.plot(tx, ty)
-            # plt.plot(ob[:, 0], ob[:, 1], "xk")
             plt.plot(obs_path.x[1:], obs_path.y[1:], "-or")
             plt.plot(obs_path.x[1], obs_path.y[1], "vc")
             plt.xlim(obs_path.x[1] - area, obs_path.x[1] + area)
@@ -414,15 +409,15 @@ def main():
             # plt.plot(path.x[1], path.y[1], "vc")
             # plt.xlim(path.x[1] - area, path.x[1] + area)
             # plt.ylim(path.y[1] - area, path.y[1] + area)
-            # plt.title("v[km/h]:" + str(c_speed * 3.6)[0:4])
+            plt.title("v[km/h]:" + str(obs_speed * 3.6)[0:4])
             plt.grid(True)
-            plt.pause(0.0001)
+            plt.pause(0.01)
 
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
-        plt.pause(0.0001)
+        plt.pause(0.01)
         plt.show()
 
 
