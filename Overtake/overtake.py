@@ -24,7 +24,7 @@ D_ROAD_W = 1.0  # road width sampling length [m]
 DT = 0.2  # time tick [s]
 MAX_T = 5.0  # max prediction time [m]
 MIN_T = 4.0  # min prediction time [m]
-TARGET_SPEED = 30.0 / 3.6  # target speed [m/s]
+TARGET_SPEED = 15.0 / 3.6  # target speed [m/s]
 D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
 N_S_SAMPLE = 1  # sampling number of target speed
 ROBOT_RADIUS = 2.0  # robot radius [m]
@@ -219,8 +219,8 @@ def calc_global_paths(fplist, csp):
         for i in range(len(fp.yaw) - 1):
             fp.c.append((fp.yaw[i + 1] - fp.yaw[i]) / fp.ds[i])
             
-        for fp in fplist:
-         plt.plot(fp.x, fp.y, '-g')  # Visualize all generated paths
+        # for fp in fplist:
+        #  plt.plot(fp.x, fp.y, '-g')  # Visualize all generated paths
 
 
     return fplist
@@ -360,17 +360,17 @@ def main():
     obs_d_dd = 0.0 #lateral acceleration[m/ss]
     
  # initial state of ego vehicle
-    # c_speed = 30.0 / 3.6  # current speed [m/s]
-    # c_accel = 0.0  # current acceleration [m/ss]
-    # c_d = 0.0  # current lateral position [m]
-    # c_d_d = 0.0  # current lateral speed [m/s]
-    # c_d_dd = 0.0  # current lateral acceleration [m/s]
-    # s0 = 0.0  # current course position
-
+    c_speed = 10.0 / 3.6  # current speed [m/s]
+    c_accel = 0.0  # current acceleration [m/ss]
+    c_d = 2.0  # current lateral position [m]
+    c_d_d = 0.0  # current lateral speed [m/s]
+    c_d_dd = 0.0  # current lateral acceleration [m/s]
+    s0 = 0.0  # current course position
 
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
+        # path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
         
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
@@ -391,9 +391,9 @@ def main():
         # c_speed = path.s_d[1]
         # c_accel = path.s_dd[1]
 
-        if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1] - ty[-1]) <= 1.0:
-            print("Goal")
-            break
+        # if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1] - ty[-1]) <= 1.0:
+        #     print("Goal")
+        #     break
 
         if show_animation:  # pragma: no cover
             plt.cla()
@@ -412,13 +412,13 @@ def main():
             # plt.ylim(path.y[1] - area, path.y[1] + area)
             plt.title("v[km/h]:" + str(obs_speed * 3.6)[0:4])
             plt.grid(True)
-            plt.pause(0.01)
+            plt.pause(0.0001)
 
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
-        plt.pause(0.01)
+        plt.pause(0.0001)
         plt.show()
 
 
