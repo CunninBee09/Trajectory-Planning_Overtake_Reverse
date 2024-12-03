@@ -244,7 +244,8 @@ def calc_global_paths(fplist, csp):
 #         dy = ((fp.y[i] - obs_path.y[i]) ** 2)
 #         d = dx + dy
 
-#         if ([d <= ROBOT_RADIUS ** 2] ): 
+#         if ([d <= ROBOT_RADIUS *
+# * 2] ): 
 #             return False
 #         break
 
