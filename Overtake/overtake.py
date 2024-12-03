@@ -10,31 +10,35 @@ from FrenetOptimalTrajectory.frenet_optimal_trajectory import \
     frenet_optimal_planning
 
 from CubicSplinePlanner import cubic_spline_planner
+from matplotlib.patches import Rectangle
 
 road_width = 10  #meters
 obs_length = 5   #meters
 obs_width = 2    #meters
-dt = 0.2
 SIM_LOOP = 500
-MAX_SPEED = 50.0 / 3.6  # maximum speed [m/s]
-MAX_ACCEL = 2.0  # maximum acceleration [m/ss]
-MAX_CURVATURE = 1.0  # maximum curvature [1/m]
-MAX_ROAD_WIDTH = 7.0  # maximum road width [m]
-D_ROAD_W = 1.0  # road width sampling length [m]
+MAX_EGO_SPEED = 50.0 / 3.6  # maximum speed of Ego vehicle [m/s]
+MAX_EGO_ACCEL = 2.0  # maximum acceleration of Ego vehicle [m/ss]
+MAX_OBS_SPEED = 15.0 / 3.6  # maximum speed of Obstacle [m/s]
+MAX_OBS_ACCEL = 2.0  # maximum acceleration of Obstacle [m/ss]
+MAX_CURVATURE = 2.0  # maximum curvature [1/m]
+MAX_ROAD_WIDTH = 3.0  # maximum road width [m]
+D_ROAD_W = 0.5 # road width sampling length [m]
 DT = 0.2  # time tick [s]
 MAX_T = 5.0  # max prediction time [m]
 MIN_T = 4.0  # min prediction time [m]
-TARGET_SPEED = 15.0 / 3.6  # target speed [m/s]
+TARGET_SPEED = 30.0 / 3.6  # target speed [m/s]
 D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
-N_S_SAMPLE = 1  # sampling number of target speed
-ROBOT_RADIUS = 2.0  # robot radius [m]
+N_S_SAMPLE = 4 # sampling number of target speed
+ego_length = 5 #car_length [m]
+ego_width = 2 #car_width [m]
+ROBOT_RADIUS = 5.0# robot radius [m]
 
 # cost weights
 K_J = 0.1
 K_T = 0.1
-K_D = 1.0       
-K_LAT = 1.0 
-K_LON = 1.0
+K_D = 2.0       
+K_LAT = 0.5
+K_LON = 1.5
 
 show_animation = True
 
@@ -149,7 +153,7 @@ def calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0):
     frenet_paths = []
 
     # generate path to each offset goal
-    for di in np.arange(-MAX_ROAD_WIDTH, MAX_ROAD_WIDTH, D_ROAD_W):
+    for di in np.arange(-MAX_ROAD_WIDTH,3*MAX_ROAD_WIDTH, D_ROAD_W):
 
         # Lateral motion planning
         for Ti in np.arange(MIN_T, MAX_T, DT):
@@ -226,61 +230,51 @@ def calc_global_paths(fplist, csp):
     return fplist
 
 
-# def check_collision(fp, obs_path ):
-#     for i in range(len(obs_path.x)):
-#         d = [((ix - obs_path.x[i]) ** 2 + (iy[i] - obs_path.y[i] ** 2))
-#              for (ix, iy) in zip(fp.x, fp.y)]
+def check_collision(fp, obs_path ):
+    d = []
+    for i in range(min(len(fp.x), len(obs_path.x))):
+        dx = ((fp.x[i] - obs_path.x[i]) ** 2)
+        dy = ((fp.y[i] - obs_path.y[i]) ** 2)
+        d.append(dx + dy)
 
-#         collision = any([di <= ROBOT_RADIUS ** 2 for di in d])
+    collision= any([di <= ((ego_length**2) + (ego_width**2)) for di in d] )
+   # collision= any([di <= ROBOT_RADIUS**2 for di in d] )
+    
+    if collision:
+        return False
 
-#         if collision:
-#             return False
-
-#     return True
-
-# def check_collision(fp, obs_path ):
-#     for i in range(min(len(fp.x), len(obs_path.x))):
-#         dx = ((fp.x[i] - obs_path.x[i]) ** 2)
-#         dy = ((fp.y[i] - obs_path.y[i]) ** 2)
-#         d = dx + dy
-
-#         if ([d <= ROBOT_RADIUS *
-# * 2] ): 
-#             return False
-#         break
-
-#     return True
+    return True
 
 
-# def check_paths(fplist, obs_path):
-#     ok_ind = []
-#     for i, _ in enumerate(fplist):
-#         if any([v > MAX_SPEED for v in fplist[i].s_d]):  # Max speed check
-#             continue
-#         elif any([abs(a) > MAX_ACCEL for a in
-#                   fplist[i].s_dd]):  # Max accel check
-#             continue
-#         elif any([abs(c) > MAX_CURVATURE for c in
-#                   fplist[i].c]):  # Max curvature check
-#             continue
-#         # elif not check_collision(fplist[i], obs_path):
-#         #     continue
+def check_paths(fplist, obs_path):
+    ok_ind = []
+    for i, _ in enumerate(fplist):
+        if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
+            continue
+        elif any([abs(a) > MAX_EGO_ACCEL for a in
+                  fplist[i].s_dd]):  # Max accel check
+            continue
+        elif any([abs(c) > MAX_CURVATURE for c in
+                  fplist[i].c]):  # Max curvature check
+            continue
+        elif not check_collision(fplist[i], obs_path):
+            continue
 
-#         ok_ind.append(i)
+        ok_ind.append(i)
         
-#         if not ok_ind:
-#          print("All candidate paths failed constraints!")  
+        if not ok_ind:
+         print("All candidate paths failed constraints!")  
 
-#     return [fplist[i] for i in ok_ind]
+    return [fplist[i] for i in ok_ind]
     
 
 
 def check_obs_paths(obslist):
     ok_ind = []
     for i, _ in enumerate(obslist):
-        if any([v > MAX_SPEED for v in obslist[i].s_d]):  # Max speed check
+        if any([v > MAX_OBS_SPEED for v in obslist[i].s_d]):  # Max speed check
             continue
-        elif any([abs(a) > MAX_ACCEL for a in
+        elif any([abs(a) > MAX_OBS_ACCEL for a in
                   obslist[i].s_dd]):  # Max accel check
             continue
         elif any([abs(c) > MAX_CURVATURE for c in
@@ -294,23 +288,23 @@ def check_obs_paths(obslist):
     return [obslist[i] for i in ok_ind]
 
 
-# def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path):
-#     fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0)
-#     fplist = calc_global_paths(fplist, csp)
-#     fplist = check_paths(fplist, obs_path)
+def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path):
+    fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0)
+    fplist = calc_global_paths(fplist, csp)
+    fplist = check_paths(fplist, obs_path)
     
-#     # find minimum cost path
-#     min_cost = float("inf")
-#     best_path = None
-#     for fp in fplist:
-#         if min_cost >= fp.cf:
-#             min_cost = fp.cf
-#             best_path = fp
+    # find minimum cost path
+    min_cost = float("inf")
+    best_path = None
+    for fp in fplist:
+        if min_cost >= fp.cf:
+            min_cost = fp.cf
+            best_path = fp
     
-#     if not fplist:
-#      print("No valid paths generated after checking constraints!")
+    if not fplist:
+     print("No valid paths generated after checking constraints!")
 
-#     return best_path
+    return best_path
 
 def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd):
     obslist= calc_frenet_paths(obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, obs_s0)
@@ -345,14 +339,17 @@ def generate_target_course(x, y):
 def main():
     print(__file__ + " start!!")
     
-    wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0]
-    wy = [0.0, 5.0, 10.0, 0.0, 0.0, 0.0]
+    # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+    # wy = [0.0, 5.0, 10.0, 0.0, -5.0, 0.0, 0.0, 2.0, 8.0, 0.0, -5.0]
+    
+    wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0]
+    wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
     area = 20.0
     
  # initial state of obs vehicle
-    obs_s0 = 10.0 # current position
+    obs_s0 = 20.0 # current position
     obs_speed = 15.0 / 3.6  # current speed [m/s]
     obs_acc= 0.0  # current acceleration [m/ss]
     obs_d = 0.0 #lateral positon[m]
@@ -360,9 +357,9 @@ def main():
     obs_d_dd = 0.0 #lateral acceleration[m/ss]
     
  # initial state of ego vehicle
-    c_speed = 10.0 / 3.6  # current speed [m/s]
+    c_speed = 30.0 / 3.6  # current speed [m/s]
     c_accel = 0.0  # current acceleration [m/ss]
-    c_d = 2.0  # current lateral position [m]
+    c_d = 0.0  # current lateral position [m]
     c_d_d = 0.0  # current lateral speed [m/s]
     c_d_dd = 0.0  # current lateral acceleration [m/s]
     s0 = 0.0  # current course position
@@ -370,7 +367,7 @@ def main():
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
-        # path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
+        path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
         
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
@@ -379,21 +376,21 @@ def main():
         obs_speed = obs_path.s_d[1]
         obs_acc = obs_path.s_dd[1]
         
-        # path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
-        # if path is None:
-        #     print("No valid path found for ego vehicle!")
-        #     break
+        path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
+        if path is None:
+            print("No valid path found for ego vehicle!")
+            break
         
-        # s0 = path.s[1]
-        # c_d = path.d[1]
-        # c_d_d = path.d_d[1]
-        # c_d_dd = path.d_dd[1]
-        # c_speed = path.s_d[1]
-        # c_accel = path.s_dd[1]
+        s0 = path.s[1]
+        c_d = path.d[1]
+        c_d_d = path.d_d[1]
+        c_d_dd = path.d_dd[1]
+        c_speed = path.s_d[1]
+        c_accel = path.s_dd[1]
 
-        # if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1] - ty[-1]) <= 1.0:
-        #     print("Goal")
-        #     break
+        if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1] - ty[-1]) <= 1.0:
+            print("Goal")
+            break
 
         if show_animation:  # pragma: no cover
             plt.cla()
@@ -401,16 +398,48 @@ def main():
             plt.gcf().canvas.mpl_connect(
                 'key_release_event',
                 lambda event: [exit(0) if event.key == 'escape' else None])
+            
+            #Draw ego vehicle as rectangle
+            ego_vehicle = Rectangle(
+             (path.x[1] - ego_length / 2, path.y[1] - ego_width / 2),  # Bottom-left corner
+              ego_length,  # Length
+              ego_width,   # Width
+              edgecolor="blue",
+              facecolor="none"
+            )
+            plt.gca().add_patch(ego_vehicle)
+            
+            # Draw obstacle vehicle as a rectangle
+            obs_vehicle = Rectangle(
+             (obs_path.x[1] - obs_length / 2, obs_path.y[1] - obs_width / 2),  # Bottom-left corner
+              obs_length,  # Length
+              obs_width,   # Width
+              edgecolor="red",
+              facecolor="none"
+            )
+            plt.gca().add_patch(obs_vehicle)
+            
+            # Define road boundaries based on trajectory path
+            lower_boundary = -road_width / 2 + 2.5  # Lower boundary relative to trajectory
+            upper_boundary = lower_boundary + road_width  # Upper boundary relative to lower
+            middle_line = (lower_boundary + upper_boundary)/2
+
+            # Draw road boundaries
+            plt.plot([path.x[1] - area, path.x[1] + area], [lower_boundary, lower_boundary], '--k')
+            plt.plot([path.x[1] - area, path.x[1] + area], [upper_boundary, upper_boundary], '--k')
+            plt.plot([path.x[1] - area, path.x[1] + area], [middle_line, middle_line], '--k')
+
+            
             plt.plot(tx, ty)
             plt.plot(obs_path.x[1:], obs_path.y[1:], "-or")
             plt.plot(obs_path.x[1], obs_path.y[1], "vc")
             plt.xlim(obs_path.x[1] - area, obs_path.x[1] + area)
             plt.ylim(obs_path.y[1] - area, obs_path.y[1] + area)
-            # plt.plot(path.x[1:], path.y[1:], "-ob")
-            # plt.plot(path.x[1], path.y[1], "vc")
-            # plt.xlim(path.x[1] - area, path.x[1] + area)
-            # plt.ylim(path.y[1] - area, path.y[1] + area)
-            plt.title("v[km/h]:" + str(obs_speed * 3.6)[0:4])
+            plt.plot(path.x[1:], path.y[1:], "-ob")
+            plt.plot(path.x[1], path.y[1], "vc")
+            plt.xlim(path.x[1] - area, path.x[1] + area)
+            plt.ylim(path.y[1] - area, path.y[1] + area)
+            plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {obs_speed * 3.6:.2f}")
             plt.grid(True)
             plt.pause(0.0001)
 
