@@ -1,3 +1,5 @@
+
+#Code with straight path, dynamic global planning & parking spot location. 
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
@@ -14,9 +16,11 @@ from matplotlib.patches import Rectangle
 SIM_LOOP = 1000
 
 # Parameter
-MAX_SPEED = 30.0 / 3.6  # maximum speed [m/s]
+MAX_SPEED = 50.0 / 3.6  # maximum speed [m/s]
+max_rspeed = -20.0 /3.6
 MAX_ACCEL = 2.0  # maximum acceleration [m/ss]
-MAX_CURVATURE = 0.5  # maximum curvature [1/m]
+max_raccel = -1.0
+MAX_CURVATURE = 1.0  # maximum curvature [1/m]
 MAX_ROAD_WIDTH = 10.0  # maximum road width [m]
 D_ROAD_W = 1.0  # road width sampling length [m]
 DT = 0.2  # time tick [s]
@@ -27,12 +31,10 @@ D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
 N_S_SAMPLE = 1  # sampling number of target speed
 ego_length = 5 #car_length [m]
 ego_width = 2 #car_width [m]
-#park_x = 
-#park_y = 
-
-# Algorithm Foundation - 
-# From point A to B, we can define the global path straight line, 
-
+parkx = 30.0 # x coordinate for the parking 
+parky = -5.0 # y coordinate for the parking 
+pspot_length = 6.0
+psport_breadth = 4.0
 # cost weights
 K_J = 0.1
 K_T = 0.1
@@ -184,20 +186,20 @@ def calc_global_paths(fplist, csp):
     return fplist
 
 
-def check_collision(fp,ob):
-    for i in range(len(ob[:, 0])):
-        d = [((ix - ob[i, 0]) ** 2 + (iy - ob[i, 1]) ** 2)
-             for (ix, iy) in zip(fp.x, fp.y)]
+#def check_collision(fp,ob):
+    #for i in range(len(ob[:, 0])):
+        #d = [((ix - ob[i, 0]) ** 2 + (iy - ob[i, 1]) ** 2)
+             #for (ix, iy) in zip(fp.x, fp.y)]
 
-        collision = any([di <= ego_width **2 for di in d]) #because robot radius is underoot of x2 + y2 components 
+        #collision = any([di <= ego_width **2 for di in d]) #because robot radius is underoot of x2 + y2 components 
 
-        if collision:
-            return False
+        #if collision:
+            #return False
 
-    return True
+    #return True
 
 
-def check_paths(fplist,ob):
+def check_paths(fplist):
     ok_ind = []
     for i, _ in enumerate(fplist):
         if any([v > MAX_SPEED for v in fplist[i].s_d]):  # Max speed check
@@ -208,18 +210,32 @@ def check_paths(fplist,ob):
         elif any([abs(c) > MAX_CURVATURE for c in
                   fplist[i].c]):  # Max curvature check
             continue
-        elif not check_collision(fplist[i], ob):
-            continue
+        #elif not check_collision(fplist[i], ob):
+            #continue
 
         ok_ind.append(i)
 
     return [fplist[i] for i in ok_ind]
 
+def check_rev_path(rlist):
+    ok_ind = []
+    for i, _ in enumerate(rlist):
+        if any([v > max_rspeed for v in rlist[i].s_d]):
+            continue
+        elif any([abs(a) > max_raccel for a in rlist[i].s_dd]):
+            continue
+        elif any([abs(c)> MAX_CURVATURE for c in rlist[i].c]):
+            continue
 
-def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd,ob):
+        ok_ind.append(i)
+
+        return [rlist[i] for i in ok_ind]
+
+
+def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd):
     fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0)
     fplist = calc_global_paths(fplist, csp)
-    fplist = check_paths(fplist,ob)
+    fplist = check_paths(fplist)
 
     # find minimum cost path
     min_cost = float("inf")
@@ -230,6 +246,24 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd,ob):
             best_path = fp
 
     return best_path
+
+def rev_oplanning(csp, rs0, r_speed, r_accel, r_d, r_d_d, r_d_dd):
+    rlist = calc_frenet_paths(r_speed, r_accel, r_d, r_d_d, r_d_dd)
+    rlist = calc_global_paths(rlist,csp)
+    rlist = check_rev_path(rlist)
+
+    min_cost = float("inf")
+    rev_best_path = None
+    for rp in rlist:
+        if min_cost >= rp.cf:
+            min_cost = rp.cf
+            rev_best_path = rp
+
+    if not rlist:
+        print("No Valid Paths found for Reverse")
+    
+    return rev_best_path
+                
 
 
 def generate_target_course(x, y):
@@ -246,20 +280,37 @@ def generate_target_course(x, y):
 
     return rx, ry, ryaw, rk, csp
 
+def calculate_waypoints(parkx, wy_value=0.0, interval=10):
+   
+    
+    wx = [i for i in range(0, int(parkx + 25.0) + 1, interval)]
+    
+    
+    if wx[-1] != parkx + 25.0:
+        wx.append(parkx + 25.0)
+    
+   
+    wy = [wy_value] * len(wx)
+    
+    return wx, wy
 
 def main():
-    def main():
-        print(__file__ + " start!!")
+
+    print(__file__ + " start!!")
 
     # way points
-    wx = [60.0, 52.0, 45.0, 35.0, 20.5, 10.0, 0]
-    wy = [0.0, -0.5, -1.0, -3.0, -3.7, -5.0, -5.0]
+    phase = "forward"
+    wx, wy = calculate_waypoints(parkx)
+     #drawing parking space 
+    parkx_bottomleft = parkx - pspot_length/2 
+    parky_bottomleft = parky - psport_breadth/2 
+   
     #obstacle lists
-    ob = np.array([[40.0,0.0],[30.0, -3.5]])
+    #ob = np.array([[6.0,0.0],[15.0, 0.0]])
 
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
 
-    # initial state
+    # initial state Forward Motion 
     c_speed = 30.0 / 3.6  # current speed [m/s]
     c_accel = 0.0  # current acceleration [m/ss]
     c_d = 0.0  # current lateral position [m]
@@ -267,59 +318,89 @@ def main():
     c_d_dd = 0.0  # current lateral acceleration [m/s]
     s0 = 0.0  # current course position
 
-    area = 20.0  # animation area length [m]
+    #Reverse Motion 
+    r_speed = -30.0 /3.6 
+    r_accel = 0.0
+    r_d = 0.0 
+    r_d_d = 0.0
+    r_d_dd = 0.0
+    rs0 = 0.0 
 
-    for i in range(SIM_LOOP):
-        path = frenet_optimal_planning(
-            csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, ob)
 
-        s0 = path.s[1]
-        c_d = path.d[1]
-        c_d_d = path.d_d[1]
-        c_d_dd = path.d_dd[1]
-        c_speed = path.s_d[1]
-        c_accel = path.s_dd[1]
+    area = 20.0  
+    phase = 'forward'
+    if(phase =="forward"):
+        for i in range(SIM_LOOP):
+            path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd)
 
-        if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 1.0:
-            print("Goal")
-            break
+            s0 = path.s[1]
+            c_d = path.d[1]
+            c_d_d = path.d_d[1]
+            c_d_dd = path.d_dd[1]
+            c_speed = path.s_d[1]
+            c_accel = path.s_dd[1]
 
-        if show_animation:  # pragma: no cover
-            plt.cla()
+
+            if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 1.0:
+                print("Goal")
+                phase ='Reverse'
+    
+                if show_animation:  # pragma: no cover
+                    plt.cla()
             # for stopping simulation with the esc key.
-            plt.gcf().canvas.mpl_connect(
-                'key_release_event',
-                lambda event: [exit(0) if event.key == 'escape' else None])
-            plt.plot(tx, ty)
-            plt.plot(ob[:, 0], ob[:, 1], "xk")
+                    plt.gcf().canvas.mpl_connect('key_release_event',lambda event: [exit(0) if event.key == 'escape' else None])
+                    plt.plot(tx, ty)
+            #plt.plot(ob[:, 0], ob[:, 1], "xk")
             #plt.plot([ :, 0],[:, 1], "xk")
-            road_y1 = 10  # Top boundary of the road
-            road_y2 = -10  # Bottom boundary of the road
-            plt.plot([min(tx), max(tx)], [road_y1, road_y1], 'black', linewidth=2)
-            plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
+                    road_y1 = 10  
+                    road_y2 = -10  
+                    plt.plot([min(tx), max(tx)], [road_y1, road_y1], 'black', linewidth=2)
+                    plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
             
-            px, py, yaw = path.x[1], path.y[1], path.yaw[1]
-            rectangle = plt.Rectangle(
-                    (px - ego_length / 2, py - ego_width / 2),  # Bottom-left corner
-                    ego_length,  
-                    ego_width,   
-                    edgecolor = 'Black'
-                )
-            plt.gca().add_patch(rectangle) 
-            plt.plot(path.x[1:], path.y[1:], "-or")
-            plt.plot(path.x[1], path.y[1], "vc")
-            plt.xlim(path.x[1] - area, path.x[1] + area)
-            plt.ylim(path.y[1] - area, path.y[1] + area)
-            plt.title("v[km/h]:" + str(c_speed * 3.6)[0:4])
-            plt.grid(True)
-            plt.pause(0.01)
+                    px, py, yaw = path.x[1], path.y[1], path.yaw[1]
+                    ego_vehicle = plt.Rectangle((px - ego_length / 2, py - ego_width / 2), ego_length, ego_width, edgecolor = 'Black')
+                    parkingspot = plt.Rectangle((parkx_bottomleft,parky_bottomleft),pspot_length,psport_breadth,linewidth = 2, edgecolor = 'blue')
+                    plt.gca().add_patch(parkingspot) 
+                    plt.gca().add_patch(ego_vehicle) 
+                    plt.plot(path.x[1:], path.y[1:], "-or")
+                    plt.plot(path.x[1], path.y[1], "vc")
+                    plt.xlim(path.x[1] - area, path.x[1] + area)
+                    plt.ylim(path.y[1] - area, path.y[1] + area)
+                    plt.title("v[km/h]:" + str(c_speed * 3.6)[0:4])
+                    plt.grid(True)
+                    plt.pause(0.01)
+                    print("Optimal Forward Path Found")
+
+    elif (phase =='Reverse'):
+        for i in range(SIM_LOOP):
+            
+            wx, wy = tx[-1], ty[-1]  
+            wx -= [parkx]  
+            wy -= [parky]  
+            rpath = rev_oplanning(csp, rs0, r_speed, r_accel, r_d, r_d_d, r_d_dd)
+            rs0 = rpath.s[1]
+
+            if show_animation: 
+                plt.cla()
+                plt.plot(tx, ty)
+                plt.plot([min(tx), max(tx)], [road_y1, road_y1], 'black', linewidth=2)
+                plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
+                px, py, yaw = rpath.x[1], rpath.y[1], rpath.yaw[1]
+                ego_vehicle = plt.Rectangle((px - ego_length / 2, py - ego_width / 2), ego_length, ego_width, edgecolor='Black')
+                parkingspot = plt.Rectangle((parkx_bottomleft, parky_bottomleft), pspot_length, psport_breadth, linewidth=2, edgecolor='blue')
+                plt.gca().add_patch(parkingspot)
+                plt.gca().add_patch(ego_vehicle)
+                plt.plot(rpath.x[1:], rpath.y[1:], "-og")
+                plt.plot(rpath.x[1], rpath.y[1], "vc")
+                plt.xlim(rpath.x[1] - area, rpath.x[1] + area)
+                plt.ylim(rpath.y[1] - area, rpath.y[1] + area)
+                plt.title("v[km/h]:" + str(r_speed * 3.6)[0:4])
+                plt.grid(True)
+                plt.pause(0.01)
+                print("Optimal Rev Path Found")
 
     print("Finish")
-    if show_animation:  # pragma: no cover
+    if show_animation:  
         plt.grid(True)
         plt.pause(0.01)
         plt.show()
-
-
-if __name__ == '__main__':
-    main()
