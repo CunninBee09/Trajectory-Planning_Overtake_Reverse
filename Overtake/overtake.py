@@ -15,7 +15,7 @@ from matplotlib.patches import Rectangle
 road_width = 10  #meters
 obs_length = 5   #meters
 obs_width = 2    #meters
-SIM_LOOP = 500
+SIM_LOOP = 1000
 MAX_EGO_SPEED = 50.0 / 3.6  # maximum speed of Ego vehicle [m/s]
 MAX_EGO_ACCEL = 2.0  # maximum acceleration of Ego vehicle [m/ss]
 MAX_OBS_SPEED = 15.0 / 3.6  # maximum speed of Obstacle [m/s]
@@ -38,7 +38,7 @@ K_J = 0.1
 K_T = 0.1
 K_D = 2.0       
 K_LAT = 0.5
-K_LON = 1.5
+K_LON = 2
 
 show_animation = True
 
@@ -246,13 +246,17 @@ def check_collision(fp, obs_path ):
     return True
 
 
-def check_paths(fplist, obs_path):
+def check_paths(fplist, obs_path,uy,ly):
     ok_ind = []
     for i, _ in enumerate(fplist):
         if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
             continue
         elif any([abs(a) > MAX_EGO_ACCEL for a in
                   fplist[i].s_dd]):  # Max accel check
+            continue
+        elif any((iy >= (uy-1)) for (iy,uy) in zip(fplist[i].y,uy)):
+            continue
+        elif any((iy <= (ly+1)) for (iy,ly) in zip(fplist[i].y,ly)):
             continue
         elif any([abs(c) > MAX_CURVATURE for c in
                   fplist[i].c]):  # Max curvature check
@@ -288,10 +292,10 @@ def check_obs_paths(obslist):
     return [obslist[i] for i in ok_ind]
 
 
-def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path):
+def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, uy,ly):
     fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0)
     fplist = calc_global_paths(fplist, csp)
-    fplist = check_paths(fplist, obs_path)
+    fplist = check_paths(fplist, obs_path, uy,ly)
     
     # find minimum cost path
     min_cost = float("inf")
@@ -343,10 +347,13 @@ def main():
     # wy = [0.0, 5.0, 10.0, 0.0, -5.0, 0.0, 0.0, 2.0, 8.0, 0.0, -5.0]
     
     wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0]
-    wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    wy = [0.0, 2.0, 5.0, 2.0, -2.0, -4.0, 0.0, 3.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
     area = 20.0
+    
+    uy= [y + 7.5 for y in ty ]
+    ly= [y - 2.5 for y in ty ]
     
  # initial state of obs vehicle
     obs_s0 = 20.0 # current position
@@ -367,7 +374,7 @@ def main():
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
-        path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
+        path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, uy ,ly)
         
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
@@ -376,10 +383,10 @@ def main():
         obs_speed = obs_path.s_d[1]
         obs_acc = obs_path.s_dd[1]
         
-        path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
-        if path is None:
-            print("No valid path found for ego vehicle!")
-            break
+        # path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, uy)
+        # if path is None:
+        #     print("No valid path found for ego vehicle!")
+        #     break
         
         s0 = path.s[1]
         c_d = path.d[1]
@@ -399,11 +406,15 @@ def main():
                 'key_release_event',
                 lambda event: [exit(0) if event.key == 'escape' else None])
             
+            # Get yaw for ego vehicle
+            ego_yaw = path.yaw[1] * 180 / np.pi  # Convert from radians to degrees for matplotlib
+            
             #Draw ego vehicle as rectangle
             ego_vehicle = Rectangle(
              (path.x[1] - ego_length / 2, path.y[1] - ego_width / 2),  # Bottom-left corner
               ego_length,  # Length
               ego_width,   # Width
+              angle = ego_yaw,
               edgecolor="blue",
               facecolor="none"
             )
@@ -419,18 +430,26 @@ def main():
             )
             plt.gca().add_patch(obs_vehicle)
             
-            # Define road boundaries based on trajectory path
-            lower_boundary = -road_width / 2 + 2.5  # Lower boundary relative to trajectory
-            upper_boundary = lower_boundary + road_width  # Upper boundary relative to lower
-            middle_line = (lower_boundary + upper_boundary)/2
+            # # Define road boundaries based on trajectory path
+            # lower_boundary = -road_width / 2 + 2.5  # Lower boundary relative to trajectory
+            # upper_boundary = lower_boundary + road_width  # Upper boundary relative to lower
+            # middle_line = (lower_boundary + upper_boundary)/2
+            
+            # lower_boundary = -tx+ 2.5
+            # upper_boundary = lower_boundary + tx 
+            # middle_line = (lower_boundary + upper_boundary)/2
+
 
             # Draw road boundaries
-            plt.plot([path.x[1] - area, path.x[1] + area], [lower_boundary, lower_boundary], '--k')
-            plt.plot([path.x[1] - area, path.x[1] + area], [upper_boundary, upper_boundary], '--k')
-            plt.plot([path.x[1] - area, path.x[1] + area], [middle_line, middle_line], '--k')
+            # plt.plot([path.x[1] - area, path.x[1] + area], [lower_boundary, lower_boundary], '--k')
+            # plt.plot([path.x[1] - area, path.x[1] + area], [upper_boundary, upper_boundary], '--k')
+            # plt.plot([path.x[1] - area, path.x[1] + area], [middle_line, middle_line], '--k')
+            
 
             
             plt.plot(tx, ty)
+            plt.plot(tx, uy, '--k')
+            plt.plot(tx, ly, '--k')
             plt.plot(obs_path.x[1:], obs_path.y[1:], "-or")
             plt.plot(obs_path.x[1], obs_path.y[1], "vc")
             plt.xlim(obs_path.x[1] - area, obs_path.x[1] + area)
@@ -441,13 +460,13 @@ def main():
             plt.ylim(path.y[1] - area, path.y[1] + area)
             plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {obs_speed * 3.6:.2f}")
             plt.grid(True)
-            plt.pause(0.0001)
+            plt.pause(0.001)
 
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
-        plt.pause(0.0001)
+        plt.pause(0.001)
         plt.show()
 
 
