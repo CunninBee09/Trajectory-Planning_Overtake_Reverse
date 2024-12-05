@@ -348,7 +348,8 @@ def main():
     wy = [0.0, 5.0, 10.0, 20.0, 30.0, 30.0, 20.0, 10.0, 5.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
-    area = 20.0
+    area = 40.0
+    
     ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     lx = [x - 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
