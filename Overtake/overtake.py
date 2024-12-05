@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.transforms as transforms
 import copy
 import math
 import sys
@@ -37,7 +38,7 @@ ROBOT_RADIUS = 5.0# robot radius [m]
 K_J = 0.1
 K_T = 0.1
 K_D = 2.0       
-K_LAT = 0.5
+K_LAT = 0.8
 K_LON = 2
 
 show_animation = True
@@ -254,10 +255,10 @@ def check_paths(fplist, obs_path,uy,ly):
         elif any([abs(a) > MAX_EGO_ACCEL for a in
                   fplist[i].s_dd]):  # Max accel check
             continue
-        elif any((iy >= (uy-1)) for (iy,uy) in zip(fplist[i].y,uy)):
-            continue
-        elif any((iy <= (ly+1)) for (iy,ly) in zip(fplist[i].y,ly)):
-            continue
+        # elif any((iy >= (uy)) for (iy,uy) in zip(fplist[i].y,uy)):
+        #     continue
+        # elif any((iy <= (ly)) for (iy,ly) in zip(fplist[i].y,ly)):
+        #     continue
         elif any([abs(c) > MAX_CURVATURE for c in
                   fplist[i].c]):  # Max curvature check
             continue
@@ -343,17 +344,17 @@ def generate_target_course(x, y):
 def main():
     print(__file__ + " start!!")
     
-    # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
-    # wy = [0.0, 5.0, 10.0, 0.0, -5.0, 0.0, 0.0, 2.0, 8.0, 0.0, -5.0]
-    
     wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0]
-    wy = [0.0, 2.0, 5.0, 2.0, -2.0, -4.0, 0.0, 3.0, 0.0, 0.0]
+    wy = [0.0, 5.0, 10.0, 20.0, 30.0, 30.0, 20.0, 10.0, 5.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
     area = 20.0
-    
-    uy= [y + 7.5 for y in ty ]
-    ly= [y - 2.5 for y in ty ]
+    ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
+    lx = [x - 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    ly = [y - 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
+    mx = [x + 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    my = [y + 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     
  # initial state of obs vehicle
     obs_s0 = 20.0 # current position
@@ -414,11 +415,18 @@ def main():
              (path.x[1] - ego_length / 2, path.y[1] - ego_width / 2),  # Bottom-left corner
               ego_length,  # Length
               ego_width,   # Width
-              angle = ego_yaw,
+            #   angle = ego_yaw,
               edgecolor="blue",
               facecolor="none"
             )
+            
+            # Apply rotation around the center of the rectangle
+            t = transforms.Affine2D().rotate_deg_around(path.x[1], path.y[1], ego_yaw) + plt.gca().transData
+            ego_vehicle.set_transform(t)
+
             plt.gca().add_patch(ego_vehicle)
+            
+            obs_yaw = obs_path.yaw[1] * 180 / np.pi
             
             # Draw obstacle vehicle as a rectangle
             obs_vehicle = Rectangle(
@@ -428,33 +436,21 @@ def main():
               edgecolor="red",
               facecolor="none"
             )
+            t = transforms.Affine2D().rotate_deg_around(obs_path.x[1], obs_path.y[1], obs_yaw) + plt.gca().transData
+            obs_vehicle.set_transform(t)
+            
             plt.gca().add_patch(obs_vehicle)
             
-            # # Define road boundaries based on trajectory path
-            # lower_boundary = -road_width / 2 + 2.5  # Lower boundary relative to trajectory
-            # upper_boundary = lower_boundary + road_width  # Upper boundary relative to lower
-            # middle_line = (lower_boundary + upper_boundary)/2
-            
-            # lower_boundary = -tx+ 2.5
-            # upper_boundary = lower_boundary + tx 
-            # middle_line = (lower_boundary + upper_boundary)/2
-
-
-            # Draw road boundaries
-            # plt.plot([path.x[1] - area, path.x[1] + area], [lower_boundary, lower_boundary], '--k')
-            # plt.plot([path.x[1] - area, path.x[1] + area], [upper_boundary, upper_boundary], '--k')
-            # plt.plot([path.x[1] - area, path.x[1] + area], [middle_line, middle_line], '--k')
-            
-
             
             plt.plot(tx, ty)
-            plt.plot(tx, uy, '--k')
-            plt.plot(tx, ly, '--k')
-            plt.plot(obs_path.x[1:], obs_path.y[1:], "-or")
+            plt.plot(ux, uy, '--k')
+            plt.plot(lx, ly, '--k')
+            plt.plot(mx, my, '--k')
+            plt.plot(obs_path.x[1:], obs_path.y[1:], "-r")
             plt.plot(obs_path.x[1], obs_path.y[1], "vc")
             plt.xlim(obs_path.x[1] - area, obs_path.x[1] + area)
             plt.ylim(obs_path.y[1] - area, obs_path.y[1] + area)
-            plt.plot(path.x[1:], path.y[1:], "-ob")
+            plt.plot(path.x[1:], path.y[1:], "-k")
             plt.plot(path.x[1], path.y[1], "vc")
             plt.xlim(path.x[1] - area, path.x[1] + area)
             plt.ylim(path.y[1] - area, path.y[1] + area)
