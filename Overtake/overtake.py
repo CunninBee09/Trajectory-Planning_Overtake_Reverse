@@ -43,7 +43,6 @@ K_LON = 2
 
 show_animation = True
 
-
 class QuarticPolynomial:
 
     def __init__(self, xs, vxs, axs, vxe, axe, time):
@@ -83,6 +82,7 @@ class QuarticPolynomial:
         xt = 6 * self.a3 + 24 * self.a4 * t
 
         return xt
+
 
 class QuinticPolynomial:
 
@@ -126,6 +126,7 @@ class QuinticPolynomial:
         xt = 6 * self.a3 + 24 * self.a4 * t + 60 * self.a5 * t ** 2
 
         return xt
+
     
 class FrenetPath:
 
@@ -239,7 +240,6 @@ def check_collision(fp, obs_path ):
         d.append(dx + dy)
 
     collision= any([di <= ((ego_length**2) + (ego_width**2)) for di in d] )
-   # collision= any([di <= ROBOT_RADIUS**2 for di in d] )
     
     if collision:
         return False
@@ -271,9 +271,8 @@ def check_paths(fplist, obs_path,uy,ly):
          print("All candidate paths failed constraints!")  
 
     return [fplist[i] for i in ok_ind]
+
     
-
-
 def check_obs_paths(obslist):
     ok_ind = []
     for i, _ in enumerate(obslist):
@@ -298,6 +297,7 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = calc_global_paths(fplist, csp)
     fplist = check_paths(fplist, obs_path, uy,ly)
     
+    
     # find minimum cost path
     min_cost = float("inf")
     best_path = None
@@ -308,8 +308,11 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     
     if not fplist:
      print("No valid paths generated after checking constraints!")
+     
+    sorted_fplist = fplist.sort(key=lambda x: x.cf)
+    
+    return best_path  
 
-    return best_path
 
 def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd):
     obslist= calc_frenet_paths(obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, obs_s0)
@@ -340,15 +343,16 @@ def generate_target_course(x, y):
         rk.append(csp.calc_curvature(i_s))
 
     return rx, ry, ryaw, rk, csp
+
     
 def main():
     print(__file__ + " start!!")
     
     wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0]
-    wy = [0.0, 5.0, 10.0, 20.0, 30.0, 30.0, 20.0, 10.0, 5.0, 0.0]
+    wy = [0.0, 10.0, 20.0, 10.0, 0.0, -10.0, -5.0, 0.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
-    area = 40.0
+    area = 25.0
     
     ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
@@ -372,7 +376,7 @@ def main():
     c_d_d = 0.0  # current lateral speed [m/s]
     c_d_dd = 0.0  # current lateral acceleration [m/s]
     s0 = 0.0  # current course position
-
+    
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
@@ -396,10 +400,14 @@ def main():
         c_d_dd = path.d_dd[1]
         c_speed = path.s_d[1]
         c_accel = path.s_dd[1]
+        
+        # plt.figure()
+        # for i, path in enumerate(fplist[:10]):
+        #   plt.plot(path.x, path.y, label=f"Path {i} (Cost: {path.cf:.2f})")
 
-        if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1] - ty[-1]) <= 1.0:
-            print("Goal")
-            break
+        # if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1] - ty[-1]) <= 1.0:
+        #     print("Goal")
+        #     break
 
         if show_animation:  # pragma: no cover
             plt.cla()
@@ -457,13 +465,13 @@ def main():
             plt.ylim(path.y[1] - area, path.y[1] + area)
             plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {obs_speed * 3.6:.2f}")
             plt.grid(True)
-            plt.pause(0.001)
+            plt.pause(0.0001)
 
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
-        plt.pause(0.001)
+        plt.pause(0.0001)
         plt.show()
 
 
