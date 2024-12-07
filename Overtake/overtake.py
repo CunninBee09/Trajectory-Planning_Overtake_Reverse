@@ -304,7 +304,10 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = check_paths(fplist, obs_path, uy,ly)
     
     if fplist is None:
-        return None
+       print("No valid paths after check_paths")
+       return None, None
+    
+    fplist.sort(key=lambda x: x.cf)
     
     # find minimum cost path
     min_cost = float("inf")
@@ -315,11 +318,12 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
             best_path = fp
     
     if not fplist:
-     print("No valid paths generated after checking constraints!")
+      print("No valid paths generated after checking constraints!")
+      return None, None
      
-    sorted_fplist = fplist.sort(key=lambda x: x.cf)
+    # sorted_fplist = fplist.sort(key=lambda x: x.cf)
     
-    return best_path 
+    return best_path, fplist
 
 
 def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd):
@@ -357,7 +361,7 @@ def main():
     print(__file__ + " start!!")
     
     wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0]
-    wy = [0.0, 10.0, 20.0, 20.0, 10.0, 0.0, -5.0, 0.0, 0.0, 0.0]
+    wy = [0.0, 10.0, 20.0, 20.0, 10.0, 0.0, -5.0, -5.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
     area = 25.0
@@ -388,7 +392,7 @@ def main():
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
-        path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
+        path, fplist = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
         
         
         if path is None:
@@ -428,11 +432,9 @@ def main():
             plt.gcf().canvas.mpl_connect(
                 'key_release_event',
                 lambda event: [exit(0) if event.key == 'escape' else None])
-            
-            # Get yaw for ego vehicle
-            ego_yaw = path.yaw[1] * 180 / np.pi  # Convert from radians to degrees for matplotlib
-            
+             
             #Draw ego vehicle as rectangle
+            ego_yaw = path.yaw[1] * 180 / np.pi  # Convert from radians to degrees for matplotlib
             ego_vehicle = Rectangle(
              (path.x[1] - ego_length / 2, path.y[1] - ego_width / 2),  # Bottom-left corner
               ego_length,  # Length
@@ -448,9 +450,12 @@ def main():
 
             plt.gca().add_patch(ego_vehicle)
             
-            obs_yaw = obs_path.yaw[1] * 180 / np.pi
-            
+            # Plot the top 10 paths
+            for i, fp in enumerate(fplist[:10]):  # Only plot the top 10 paths
+               plt.plot(fp.x, fp.y, label=f"Path {i + 1} (Cost: {fp.cf:.4f})", linestyle="--", alpha=1.0)
+               
             # Draw obstacle vehicle as a rectangle
+            obs_yaw = obs_path.yaw[1] * 180 / np.pi
             obs_vehicle = Rectangle(
              (obs_path.x[1] - obs_length / 2, obs_path.y[1] - obs_width / 2),  # Bottom-left corner
               obs_length,  # Length
