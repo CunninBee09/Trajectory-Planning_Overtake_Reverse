@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
@@ -29,7 +30,7 @@ D_T_S = 4.0 / 3.6  # target speed sampling length [m/s]
 N_S_SAMPLE = 6  # sampling number of target speed
 ego_length = 5 #car_length [m]
 ego_width = 2 #car_width [m]
-parkx = 30.0 # x coordinate for the parking 
+parkx = 20.0 # x coordinate for the parking 
 parky = -5.0 # y coordinate for the parking 
 pspot_length = 6.0
 psport_breadth = 4.0
@@ -162,20 +163,23 @@ def calc_global_paths(fplist, csp):
                 break
             i_yaw = csp.calc_yaw(fp.s[i])
             di = fp.d[i]
-            fx = ix + di * math.cos(i_yaw + math.pi / 2.0)
-            fy = iy + di * math.sin(i_yaw + math.pi / 2.0)
+            fx = ix + di * math.cos(i_yaw + math.pi / 2.0) 
+            fy = iy + di * math.sin(i_yaw + math.pi / 2.0) 
             fp.x.append(fx)
             fp.y.append(fy)
 
         # calc yaw and ds
         for i in range(len(fp.x) - 1):
-            dx = fp.x[i + 1] - fp.x[i]
-            dy = fp.y[i + 1] - fp.y[i]
+            dx = fp.x[i + 1] - fp.x[i]       #+1
+            dy = fp.y[i + 1] - fp.y[i]       #+1
             fp.yaw.append(math.atan2(dy, dx))
             fp.ds.append(math.hypot(dx, dy))
 
-        fp.yaw.append(fp.yaw[-1])
-        fp.ds.append(fp.ds[-1])
+        if fp.yaw is None:
+            continue
+        else:
+            fp.yaw.append(fp.yaw[-1])
+            fp.ds.append(fp.ds[-1])
 
         # calc curvature
         for i in range(len(fp.yaw) - 1):
@@ -291,23 +295,32 @@ def calculate_waypoints(parkx, wy_value=0.0, interval=10):
     wy = [wy_value] * len(wx)
     
     return wx, wy
-#def generate_reverse_target_course(tx, ty, parkx, parky):
+def generate_reverse_target_course(tx, ty, parkx, parky):
     # Generate reverse waypoints starting from the last point of the forward path to the parking spot
-    #wx = [tx[-1]]  # Start at the last point of the forward path
-    #wy = [ty[-1]]  # Start at the last point of the forward path
+    wx = [tx[-1]]  # Start at the last point of the forward path
+    wy = [ty[-1]]   # Start at the last point of the forward path
     # Generate a path that reverses towards the parking spot
-    #while np.hypot(wx[-1] - parkx, wy[-1] - parky) > 1.0:  # Ensure we are not already at the parking spot
-        #direction_x = np.sign(parkx - wx[-1])  # Determine the direction to move in x
-        #direction_y = np.sign(parky - wy[-1])  # Determine the direction to move in y
+    while np.hypot(wx[-1] - parkx, wy[-1] - parky) > 1.0:  # Ensure we are not already at the parking spot
+        direction_x = np.sign(parkx - wx[-1])  # Determine the direction to move in x
+        direction_y = np.sign(parky - wy[-1])  # Determine the direction to move in y
 
         # Move step-by-step towards the parking spot with a step size (e.g., 1.0)
-        #new_x = wx[-1] + direction_x * 1.0
-        #new_y = wy[-1] + direction_y * 1.0
+        new_x = wx[-1] + direction_x * 1.0 
+        new_y = wy[-1] + direction_y * 1.0
 
-        #wx.append(new_x)
-        #wy.append(new_y)
+        wx.append(new_x)
+        wy.append(new_y)
 
-    #return wx, wy
+    return wx, wy
+
+def rev_path_lin_interpolation(tx,ty,parkx,parky,segments):
+    #Using linear interpolation method for calculating path between forward motion end point & parking coordinates
+    wx = tx[-1]
+    wy = ty[-1]
+    new_wx = np.linspace(wx,parkx, segments + 2).tolist()
+    new_wy = np.linspace(wy,parky, segments + 2).tolist()
+
+    return new_wx,new_wy
 
 def main():
     print(__file__ + " start!!")
@@ -362,34 +375,31 @@ def main():
     
 
         # Initial state for reverse motion
-        r_speed = 0  # Reverse speed [m/s]
-        r_accel = 2.0  # Reverse acceleration [m/s^2]
-        r_d = 0.0  # Reverse lateral position [m]
-        r_d_d = 0.0  # Reverse lateral speed [m/s]
-        r_d_dd = 0.0  # Reverse lateral acceleration [m/s^2]
-        rs0 = 0.0  # Current reverse course position
+    r_speed = 0.0 / 3.6  # Reverse speed [m/s]
+    r_accel = 2.0  # Reverse acceleration [m/s^2]
+    r_d = 0.0  # Reverse lateral position [m]
+    r_d_d = 0.0  # Reverse lateral speed [m/s]
+    r_d_dd = 0.0  # Reverse lateral acceleration [m/s^2]
+    rs0 = 0.0  # Current reverse course position
 
         #print("Switching to reverse motion")
-        rvx = [50.0, 45.0, 38.0, 35.0, 30.0]
-        rvy = [0.0, -1.0, -2.0, -4.0, -5.0]
-        tx, ty, tyaw, tc, csp = generate_target_course(rvx, rvy)
+    rvx, rvy = rev_path_lin_interpolation(tx,ty,parkx,parky,5)
+    tx, ty, tyaw, tc, csp = generate_target_course(rvx, rvy)
 
     for i in range(SIM_LOOP):
         path = frenet_optimal_planning(csp, rs0, r_speed, r_accel, r_d, r_d_d, r_d_dd)
-        rs0 = path.s[1]
+        rs0 = path.s[1] 
         r_d = path.d[1]
         r_d_d = path.d_d[1]
         r_d_dd = path.d_dd[1]
         r_speed = path.s_d[1]
         r_accel = path.s_dd[1]
-        
+        if np.hypot(path.x[1] - tx[-1] , path.y[1] - ty[-1]) <= 1.0 :
+                break
         if show_animation:
             plt.cla()
             plt.gcf().canvas.mpl_connect('key_release_event', lambda event: [exit(0) if event.key == 'escape' else None])
             plt.plot(tx, ty)
-            road_y1, road_y2 = 10, -10
-            plt.plot([min(tx), max(tx)], [road_y1, road_y1], 'black', linewidth=2)
-            plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
             px, py, yaw = path.x[1], path.y[1], path.yaw[1]
             ego_vehicle = plt.Rectangle((px - ego_length / 2, py - ego_width / 2), ego_length, ego_width, edgecolor='Black')
             parkingspot = plt.Rectangle((parkx - pspot_length / 2, parky - psport_breadth / 2), pspot_length, psport_breadth, linewidth=2, edgecolor='blue')
@@ -402,7 +412,7 @@ def main():
             plt.title("v[km/h]:" + str(r_speed * 3.6)[0:4])
             plt.grid(True)
             plt.pause(0.02)
-            print("GOAL2")
+            print("end positions", tx[-1],ty[-1])
 
     print("Finish")
 
