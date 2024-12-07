@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
@@ -10,7 +11,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent))
 from FrenetOptimalTrajectory.frenet_optimal_trajectory import \
     frenet_optimal_planning
 
-from CubicSplinePlanner import cubic_spline_planner
+from CubicSpline import cubic_spline_planner
 from matplotlib.patches import Rectangle
 
 road_width = 10  #meters
@@ -303,8 +304,6 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = calc_global_paths(fplist, csp)
     fplist = check_paths(fplist, obs_path, uy,ly)
     
-    if fplist is None:
-        return None
     
     # find minimum cost path
     min_cost = float("inf")
@@ -430,7 +429,7 @@ def main():
                 lambda event: [exit(0) if event.key == 'escape' else None])
             
             # Get yaw for ego vehicle
-            ego_yaw = path.yaw[0] * 180 / np.pi  # Convert from radians to degrees for matplotlib
+            ego_yaw = path.yaw[1] * 180 / np.pi  # Convert from radians to degrees for matplotlib
             
             #Draw ego vehicle as rectangle
             ego_vehicle = Rectangle(
@@ -478,13 +477,13 @@ def main():
             plt.ylim(path.y[1] - area, path.y[1] + area)
             plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {obs_speed * 3.6:.2f}")
             plt.grid(True)
-            plt.pause(0.0001)
+            plt.pause(0.01)
 
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
-        plt.pause(0.0001)
+        plt.pause(0.01)
         plt.show()
 
 
