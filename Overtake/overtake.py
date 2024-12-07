@@ -218,8 +218,8 @@ def calc_global_paths(fplist, csp):
             fp.yaw.append(math.atan2(dy, dx))
             fp.ds.append(math.hypot(dx, dy))
 
-        if fp.yaw is None:
-            break
+        if len(fp.yaw) == 1:
+            return None
         else:
           fp.yaw.append(fp.yaw[-1])
           fp.ds.append(fp.ds[-1])
@@ -252,28 +252,31 @@ def check_collision(fp, obs_path ):
 
 def check_paths(fplist, obs_path,uy,ly):
     ok_ind = []
-    for i, _ in enumerate(fplist):
-        if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
-            continue
-        elif any([abs(a) > MAX_EGO_ACCEL for a in
+    if fplist is None:
+        return None
+    else:
+        for i, _ in enumerate(fplist):
+            if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
+                 continue
+            elif any([abs(a) > MAX_EGO_ACCEL for a in
                   fplist[i].s_dd]):  # Max accel check
-            continue
-        # elif any((iy >= (uy)) for (iy,uy) in zip(fplist[i].y,uy)):
-        #     continue
-        # elif any((iy <= (ly)) for (iy,ly) in zip(fplist[i].y,ly)):
-        #     continue
-        elif any([abs(c) > MAX_CURVATURE for c in
+                 continue
+             # elif any((iy >= (uy)) for (iy,uy) in zip(fplist[i].y,uy)):
+             #     continue
+             # elif any((iy <= (ly)) for (iy,ly) in zip(fplist[i].y,ly)):
+             #     continue
+            elif any([abs(c) > MAX_CURVATURE for c in
                   fplist[i].c]):  # Max curvature check
-            continue
-        elif not check_collision(fplist[i], obs_path):
-            continue
+                continue
+            elif not check_collision(fplist[i], obs_path):
+                continue
 
-        ok_ind.append(i)
+            ok_ind.append(i)
         
-        if not ok_ind:
-         print("All candidate paths failed constraints!")  
+            if not ok_ind:
+              print("All candidate paths failed constraints!")  
 
-    return [fplist[i] for i in ok_ind]
+        return [fplist[i] for i in ok_ind]
 
     
 def check_obs_paths(obslist):
@@ -300,6 +303,8 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = calc_global_paths(fplist, csp)
     fplist = check_paths(fplist, obs_path, uy,ly)
     
+    if fplist is None:
+        return None
     
     # find minimum cost path
     min_cost = float("inf")
@@ -321,7 +326,7 @@ def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
     obslist= calc_frenet_paths(obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, obs_s0)
     obslist= calc_global_paths(obslist, csp)
     obslist= check_obs_paths(obslist)
-
+    
     # find minimum cost path
     min_cost = float("inf")
     best_obs_path = None
@@ -385,6 +390,14 @@ def main():
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
         path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
         
+        
+        if path is None:
+            break
+        
+        if np.hypot(path.x[1] - tx[-1], path.y[0] - ty[-1]) <= 0.0:
+            print("Goal")
+            break
+        
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
         obs_d_d = obs_path.d_d[1]
@@ -408,9 +421,6 @@ def main():
         # for i, path in enumerate(fplist[:10]):
         #   plt.plot(path.x, path.y, label=f"Path {i} (Cost: {path.cf:.2f})")
 
-        if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 1.0:
-            print("Goal")
-            break
 
         if show_animation:  # pragma: no cover
             plt.cla()

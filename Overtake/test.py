@@ -15,7 +15,7 @@ road_width = 10  #meters
 obs_length = 5   #meters
 obs_width = 2    #meters
 dt = 0.2
-SIM_LOOP = 1
+SIM_LOOP = 500
 MAX_SPEED = 50.0 / 3.6  # maximum speed [m/s]
 MAX_ACCEL = 2.0  # maximum acceleration [m/ss]
 MAX_CURVATURE = 1.0  # maximum curvature [1/m]
@@ -322,8 +322,9 @@ def main():
     
     wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
     wy = [0.0, 5.0, 10.0, 0.0, -5.0, 0.0, 0.0, 2.0, 8.0, 0.0, -5.0]
-    
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
+    
+    area = 20.0
     
  # initial state of obs vehicle
     obs_s0 = 10.0 # current position
@@ -341,8 +342,6 @@ def main():
     c_d_dd = 0.0  # current lateral acceleration [m/s]
     s0 = 0.0  # current course position
     
-    area = 20.0
-
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
