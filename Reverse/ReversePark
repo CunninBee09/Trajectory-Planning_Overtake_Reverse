@@ -5,6 +5,7 @@ import copy
 import math
 import sys
 import pathlib
+import matplotlib.transforms as transforms
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from QuinticPolynomialsPlanner.quintic_polynomials_planner import \
@@ -305,8 +306,8 @@ def generate_reverse_target_course(tx, ty, parkx, parky):
         direction_y = np.sign(parky - wy[-1])  # Determine the direction to move in y
 
         # Move step-by-step towards the parking spot with a step size (e.g., 1.0)
-        new_x = wx[-1] + direction_x * 1.0 
-        new_y = wy[-1] + direction_y * 1.0
+        new_x = wx[-1] + direction_x * 2.0 
+        new_y = wy[-1] + direction_y * 2.0
 
         wx.append(new_x)
         wy.append(new_y)
@@ -317,8 +318,8 @@ def rev_path_lin_interpolation(tx,ty,parkx,parky,segments):
     #Using linear interpolation method for calculating path between forward motion end point & parking coordinates
     wx = tx[-1]
     wy = ty[-1]
-    new_wx = np.linspace(wx,parkx, segments + 2).tolist()
-    new_wy = np.linspace(wy,parky, segments + 2).tolist()
+    new_wx = np.linspace(wx,parkx, segments + 1).tolist()
+    new_wy = np.linspace(wy,parky, segments + 1).tolist()
 
     return new_wx,new_wy
 
@@ -334,7 +335,8 @@ def main():
     c_d_dd = 0.0  # Current lateral acceleration [m/s^2]
     s0 = 0.0  # Current course position
 
-    wx, wy = calculate_waypoints(parkx)
+    wx = [0.0, 10.0, 20.5, 35.0, 70.5]
+    wy = [0.0, -6.0, 5.0, 6.5, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     j =1
     while (j ==1 ):
@@ -356,12 +358,15 @@ def main():
                 plt.cla()
                 plt.gcf().canvas.mpl_connect('key_release_event', lambda event: [exit(0) if event.key == 'escape' else None])
                 plt.plot(tx, ty)
-                road_y1, road_y2 = 10, -10
-                plt.plot([min(tx), max(tx)], [road_y1, road_y1], 'black', linewidth=2)
-                plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
+                #road_y1, road_y2 = 10, -10
+                #plt.plot([min(tx), max(tx)], [road_y1, road_y1], 'black', linewidth=2)
+                #plt.plot([min(tx), max(tx)], [road_y2, road_y2], 'black', linewidth=2)
                 px, py, yaw = path.x[1], path.y[1], path.yaw[1]
-                ego_vehicle = plt.Rectangle((px - ego_length / 2, py - ego_width / 2), ego_length, ego_width, edgecolor='Black')
-                parkingspot = plt.Rectangle((parkx - pspot_length / 2, parky - psport_breadth / 2), pspot_length, psport_breadth, linewidth=2, edgecolor='blue')
+                ego_yaw = path.yaw[1] * 180 /np.pi
+                ego_vehicle = Rectangle((px - ego_length / 2.0, py - ego_width / 2.0), ego_length, ego_width, edgecolor='Black')
+                t = transforms.Affine2D().rotate_deg_around(path.x[1], path.y[1], ego_yaw) + plt.gca().transData
+                parkingspot = Rectangle((parkx - pspot_length / 2, parky - psport_breadth / 2), pspot_length, psport_breadth, linewidth=2, edgecolor='blue')
+                ego_vehicle.set_transform(t)        
                 plt.gca().add_patch(parkingspot)
                 plt.gca().add_patch(ego_vehicle)
                 plt.plot(path.x[1:], path.y[1:], "-or")
@@ -385,7 +390,6 @@ def main():
         #print("Switching to reverse motion")
     rvx, rvy = rev_path_lin_interpolation(tx,ty,parkx,parky,5)
     tx, ty, tyaw, tc, csp = generate_target_course(rvx, rvy)
-
     for i in range(SIM_LOOP):
         path = frenet_optimal_planning(csp, rs0, r_speed, r_accel, r_d, r_d_d, r_d_dd)
         rs0 = path.s[1] 
@@ -401,8 +405,11 @@ def main():
             plt.gcf().canvas.mpl_connect('key_release_event', lambda event: [exit(0) if event.key == 'escape' else None])
             plt.plot(tx, ty)
             px, py, yaw = path.x[1], path.y[1], path.yaw[1]
-            ego_vehicle = plt.Rectangle((px - ego_length / 2, py - ego_width / 2), ego_length, ego_width, edgecolor='Black')
-            parkingspot = plt.Rectangle((parkx - pspot_length / 2, parky - psport_breadth / 2), pspot_length, psport_breadth, linewidth=2, edgecolor='blue')
+            ego_yaw = path.yaw[1] * 180 /np.pi
+            ego_vehicle = Rectangle((px - ego_length / 2.0, py - ego_width / 2.0), ego_length, ego_width, edgecolor='Black')
+            t = transforms.Affine2D().rotate_deg_around(path.x[1], path.y[1], ego_yaw) + plt.gca().transData
+            parkingspot = Rectangle((parkx - pspot_length / 2, parky - psport_breadth / 2), pspot_length, psport_breadth, linewidth=2, edgecolor='blue')
+            ego_vehicle.set_transform(t)  
             plt.gca().add_patch(parkingspot)
             plt.gca().add_patch(ego_vehicle)
             plt.plot(path.x[1:], path.y[1:], "-or")
@@ -413,7 +420,7 @@ def main():
             plt.grid(True)
             plt.pause(0.02)
             print("end positions", tx[-1],ty[-1])
-
+            print("")
     print("Finish")
 
     if show_animation:  # pragma: no cover
