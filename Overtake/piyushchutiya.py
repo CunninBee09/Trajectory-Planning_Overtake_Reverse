@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
@@ -10,7 +11,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent))
 from FrenetOptimalTrajectory.frenet_optimal_trajectory import \
     frenet_optimal_planning
 
-from CubicSplinePlanner import cubic_spline_planner
+from CubicSpline import cubic_spline_planner
 from matplotlib.patches import Rectangle
 
 road_width = 10  #meters
@@ -252,28 +253,31 @@ def check_collision(fp, obs_path ):
 
 def check_paths(fplist, obs_path,uy,ly):
     ok_ind = []
-    for i, _ in enumerate(fplist):
-        if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
-            continue
-        elif any([abs(a) > MAX_EGO_ACCEL for a in
+    if fplist is None:
+        return None
+    else:
+        for i, _ in enumerate(fplist):
+            if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
+                continue
+            elif any([abs(a) > MAX_EGO_ACCEL for a in
                   fplist[i].s_dd]):  # Max accel check
-            continue
-        # elif any((iy >= (uy)) for (iy,uy) in zip(fplist[i].y,uy)):
-        #     continue
-        # elif any((iy <= (ly)) for (iy,ly) in zip(fplist[i].y,ly)):
-        #     continue
-        elif any([abs(c) > MAX_CURVATURE for c in
+                continue
+            # elif any((iy >= (uy)) for (iy,uy) in zip(fplist[i].y,uy)):
+            #     continue
+            # elif any((iy <= (ly)) for (iy,ly) in zip(fplist[i].y,ly)):
+            #     continue
+            elif any([abs(c) > MAX_CURVATURE for c in
                   fplist[i].c]):  # Max curvature check
-            continue
-        elif not check_collision(fplist[i], obs_path):
-            continue
+                continue
+            elif not check_collision(fplist[i], obs_path):
+                continue
 
-        ok_ind.append(i)
+            ok_ind.append(i)
         
-        if not ok_ind:
-         print("All candidate paths failed constraints!")  
+            if not ok_ind:
+                print("All candidate paths failed constraints!")  
 
-    return [fplist[i] for i in ok_ind]
+        return [fplist[i] for i in ok_ind]
 
     
 def check_obs_paths(obslist):
@@ -300,7 +304,8 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = calc_global_paths(fplist, csp)
     fplist = check_paths(fplist, obs_path, uy,ly)
     
-    
+    if fplist is None:
+        return None
     # find minimum cost path
     min_cost = float("inf")
     best_path = None
@@ -425,7 +430,7 @@ def main():
                 lambda event: [exit(0) if event.key == 'escape' else None])
             
             # Get yaw for ego vehicle
-            ego_yaw = path.yaw[0] * 180 / np.pi  # Convert from radians to degrees for matplotlib
+            ego_yaw = path.yaw[1] * 180 / np.pi  # Convert from radians to degrees for matplotlib
             
             #Draw ego vehicle as rectangle
             ego_vehicle = Rectangle(
@@ -473,13 +478,13 @@ def main():
             plt.ylim(path.y[1] - area, path.y[1] + area)
             plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {obs_speed * 3.6:.2f}")
             plt.grid(True)
-            plt.pause(0.0001)
+            plt.pause(0.01)
 
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
-        plt.pause(0.0001)
+        plt.pause(0.01)
         plt.show()
 
 
