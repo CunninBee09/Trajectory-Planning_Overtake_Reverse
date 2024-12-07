@@ -218,8 +218,8 @@ def calc_global_paths(fplist, csp):
             fp.yaw.append(math.atan2(dy, dx))
             fp.ds.append(math.hypot(dx, dy))
 
-        if fp.yaw is None:
-            break
+        if len(fp.yaw) ==1 :
+            return None
         else:
           fp.yaw.append(fp.yaw[-1])
           fp.ds.append(fp.ds[-1])
@@ -385,6 +385,13 @@ def main():
         obs_path = obstacle_planning(csp, obs_s0,obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
         path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
         
+        if path is None:
+            break
+        
+        if np.hypot(path.x[0] - tx[-1], path.y[0] - ty[-1]) <= 0.0:
+            print("Goal")
+            break
+        
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
         obs_d_d = obs_path.d_d[1]
@@ -408,9 +415,7 @@ def main():
         # for i, path in enumerate(fplist[:10]):
         #   plt.plot(path.x, path.y, label=f"Path {i} (Cost: {path.cf:.2f})")
 
-        if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 1.0:
-            print("Goal")
-            break
+        
 
         if show_animation:  # pragma: no cover
             plt.cla()
@@ -420,7 +425,7 @@ def main():
                 lambda event: [exit(0) if event.key == 'escape' else None])
             
             # Get yaw for ego vehicle
-            ego_yaw = path.yaw[1] * 180 / np.pi  # Convert from radians to degrees for matplotlib
+            ego_yaw = path.yaw[0] * 180 / np.pi  # Convert from radians to degrees for matplotlib
             
             #Draw ego vehicle as rectangle
             ego_vehicle = Rectangle(
