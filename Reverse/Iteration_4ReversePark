@@ -340,8 +340,7 @@ def main():
                 r_speed = path.s_d[1]
                 r_accel = path.s_dd[1]
                 
-                if (path.s[1] == parkx):
-                    
+                if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 1.0:
                     break
                  
                 if show_animation:
@@ -371,13 +370,13 @@ def main():
                     plt.grid(True)
                     plt.pause(0.02)
         
-
+        
 
 
             
                 
             
-        
+       
         #if(path.x[1] > 25.0 and motion == ' Reverse'):
             
             
@@ -408,6 +407,7 @@ def main():
                 plt.title("v[km/h]:" + str(c_speed * 3.6)[0:4])
                 plt.grid(True)
                 plt.pause(0.02)
+    
     
     print("Finish")
 
