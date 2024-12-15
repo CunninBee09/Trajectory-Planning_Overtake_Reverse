@@ -370,8 +370,9 @@ def main():
                     plt.grid(True)
                     plt.pause(0.02)
         
-        
 
+        else: 
+            break
 
             
                 
