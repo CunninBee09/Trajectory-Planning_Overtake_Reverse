@@ -39,7 +39,7 @@ def main():
     # wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
-    area = 25.0
+    area = 50.0
     
     csp.ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     csp.uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
@@ -50,14 +50,16 @@ def main():
     
  # initial state of obs vehicle
     obs_s0 = 40.0 # current position
-    obs_speed = 15.0 / 3.6  # current speed [m/s]
+    Target_obs_speed = float(input("Enter obs speed in kmph:"))/3.6
+    obs_speed =  Target_obs_speed # current speed [m/s]
     obs_acc= 0.0  # current acceleration [m/ss]
     obs_d = 0.0 #lateral positon[m]
     obs_d_d = 0.0 #lateral velocity[m/s]
     obs_d_dd = 0.0 #lateral acceleration[m/ss]
     
  # initial state of ego vehicle
-    c_speed = 30.0 / 3.6  # current speed [m/s]
+    Target_speed = float(input("Enter ego speed in kmph:"))/3.6
+    c_speed = Target_speed # current speed [m/s]
     c_accel = 0.0  # current acceleration [m/ss]
     c_d = 0.0  # current lateral position [m]
     c_d_d = 0.0  # current lateral speed [m/s]
@@ -66,8 +68,13 @@ def main():
     
     for i in range(SIM_LOOP):
         
-        obs_path = obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd)
-        path,fplist = parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path)
+        obs_path = obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd,Target_obs_speed)
+        
+        if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1]-ty[-1]) <=10.0:
+            print("Obstacle reached Goal first")
+            break
+        
+        path,fplist = parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, Target_speed)
         # path, fplist = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
         
         
@@ -77,6 +84,8 @@ def main():
         if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 0.0:
             print("Goal")
             break
+        
+        
         
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]

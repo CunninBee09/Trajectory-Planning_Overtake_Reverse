@@ -4,8 +4,8 @@ import numpy as np
 from ego_vehicle import calc_frenet_paths, calc_global_paths
 from utilis import *
 
-def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, V=15/3.6):
-    obslist= calc_frenet_paths(obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, obs_s0, V)
+def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, Target_obs_speed):
+    obslist= calc_frenet_paths(obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd, obs_s0, Target_obs_speed)
     obslist= calc_global_paths(obslist, csp)
     obslist= check_obs_paths(obslist)
     

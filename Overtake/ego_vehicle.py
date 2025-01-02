@@ -200,7 +200,7 @@ def calc_global_paths(fplist, csp):
 
 
     return fplist
-    # pass  # Keep the implementation from your original code
+    # pass
 
 def check_collision(fp, obs_path):
     d = []
@@ -215,7 +215,7 @@ def check_collision(fp, obs_path):
         return False
 
     return True
-    # pass  # Keep the implementation from your original code
+    # pass
 
 def check_paths(fplist, obs_path):
     ok_ind = []
@@ -244,7 +244,7 @@ def check_paths(fplist, obs_path):
               print("All candidate paths failed constraints!")  
 
         return [fplist[i] for i in ok_ind]
-    # pass  # Keep the implementation from your original code
+    # pass
 
 def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V):
     fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V)
@@ -252,8 +252,7 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = check_paths(fplist, obs_path,)
     
     if fplist is None:
-    #    print("No valid paths after check_paths")
-       return None, None
+        return None, None
     
     fplist.sort(key=lambda x: x.cf)
     
@@ -265,24 +264,20 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
             min_cost = fp.cf
             best_path = fp
     
-    if not fplist:
-      print("No valid paths generated after checking constraints!")
-      return None, None
      
     # sorted_fplist = fplist.sort(key=lambda x: x.cf)
     
     return best_path, fplist
-    # pass  # Keep the implementation from your original code
+    
 
-def parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path):
+def parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, Target_speed):
     if obs_path.x[0] - s0 > 20:
-        V1 =30/3.6
+        V1 = Target_speed
         path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V1)
     elif 20 > obs_path.x[0] - s0 >=0:
-        V2 = 50/3.6
+        V2 = Target_speed + (20/3.6)
         path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V2)
     else:
-        V3 = 30/3.6
+        V3 = Target_speed
         path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V3)
     return path, fplist
-    # pass  # Keep the implementation from your original code
