@@ -252,7 +252,7 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
     fplist = check_paths(fplist, obs_path,)
     
     if fplist is None:
-       print("No valid paths after check_paths")
+    #    print("No valid paths after check_paths")
        return None, None
     
     fplist.sort(key=lambda x: x.cf)
