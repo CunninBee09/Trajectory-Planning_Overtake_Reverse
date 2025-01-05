@@ -7,7 +7,7 @@ import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-from ego_vehicle import parameter
+from Overtake.ego_vehicle import parameter
 from obs_vehicle import obstacle_planning
 from utilis import *
 from CubicSplinePlanner import cubic_spline_planner
@@ -33,10 +33,10 @@ def generate_target_course(x, y):
 def main():
     print(__file__ + " start!!")
     
-    wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
-    wy = [0.0, 0.0, 0.0, 0.0, 10.0, 15.0, 15.0, 10.0, -5.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0, 0.0]
     # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
-    # wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # wy = [0.0, 0.0, 0.0, 0.0, 10.0, 15.0, 15.0, 10.0, -5.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0, 0.0]
+    wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
+    wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
     area = 50.0
