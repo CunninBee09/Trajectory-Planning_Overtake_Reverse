@@ -14,8 +14,8 @@ from CubicSplinePlanner import cubic_spline_planner
 from matplotlib.patches import Rectangle
 
 show_animation = True
-
-def generate_target_course(x, y):
+#path 1
+def generate_target_course1(x, y):
     csp = cubic_spline_planner.CubicSpline2D(x, y)
     s = np.arange(0, csp.s[-1], 0.1)
 
@@ -29,30 +29,46 @@ def generate_target_course(x, y):
 
     return rx, ry, ryaw, rk, csp    
 
+#path 2
+def generate_target_course2(x, y):
+    csp = cubic_spline_planner.CubicSpline2D(x, y)
+    s = np.arange(0, csp.s[-1], 0.1)
+
+    rx, ry, ryaw, rk = [], [], [], []
+    for i_s in s:
+        ix, iy = csp.calc_position(i_s)
+        rx.append(ix)
+        ry.append(iy)
+        ryaw.append(csp.calc_yaw(i_s))
+        rk.append(csp.calc_curvature(i_s))
+
+    return rx, ry, ryaw, rk, csp
     
 def main():
     print(__file__ + " start!!")
-    
     # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
     # wy = [0.0, 0.0, 0.0, 0.0, 10.0, 15.0, 15.0, 10.0, -5.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0, 0.0]
-    wx = [i for i in range(0, 201, 5)]  # X-coordinates from 0 to 200 in steps of 5
+    wx = [i for i in range(0, 301, 5)]  # X-coordinates from 0 to 200 in steps of 5
     wy = [5 * np.sin(0.05 * x) for x in wx]  # Y-coordinates using a sine wave
-
-
-
     # wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
     # wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
-
-    tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
+    tx, ty, tyaw, tc, csp_1 = generate_target_course1(wx, wy)
+    
+    #for lane 2
+    ax = [x + 5.0*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    ay = [y + 5.0*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
+    
+    px, py, tyaw, tc, csp_2 = generate_target_course2(ax, ay)
+    
     
     area = 40.0
     
-    csp.ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
-    csp.uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
-    csp.lx = [x - 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
-    csp.ly = [y - 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
-    csp.mx = [x + 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
-    csp.my = [y + 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
+    csp_1.ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    csp_1.uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
+    csp_1.lx = [x - 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    csp_1.ly = [y - 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
+    csp_1.mx = [x + 2.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
+    csp_1.my = [y + 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     
  # initial state of obs vehicle
     obs_s0 = [30.0, 67.0, 104.0] # current position
@@ -75,14 +91,17 @@ def main():
     for i in range(SIM_LOOP):
         obs_paths=[]
         for j in range(len(obs_s0)) :
-           obs_path = obstacle_planning(csp, obs_s0[j], obs_speed[j], obs_acc[j], obs_d[j], obs_d_d[j], obs_d_dd[j],Target_obs_speed)
-           obs_paths.append(obs_path)
+            if j == 1:
+                obs_path = obstacle_planning(csp_2, obs_s0[j], obs_speed[j], obs_acc[j], obs_d[j], obs_d_d[j], obs_d_dd[j],Target_obs_speed)
+            else:
+                obs_path = obstacle_planning(csp_1, obs_s0[j], obs_speed[j], obs_acc[j], obs_d[j], obs_d_d[j], obs_d_dd[j],Target_obs_speed)
+            obs_paths.append(obs_path)
         
         if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1]-ty[-1]) <=10.0:
             print("Obstacle reached Goal first")
             break
         
-        path,fplist = parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed)
+        path,fplist = parameter(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed)
         # path, fplist = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
         
         
@@ -166,9 +185,10 @@ def main():
             
             
             plt.plot(tx, ty)
-            plt.plot(csp.ux, csp.uy, '-k')
-            plt.plot(csp.lx, csp.ly, '-k')
-            plt.plot(csp.mx, csp.my, '--k')
+            plt.plot(px,py)
+            plt.plot(csp_1.ux, csp_1.uy, '-k')
+            plt.plot(csp_1.lx, csp_1.ly, '-k')
+            plt.plot(csp_1.mx, csp_1.my, '--k')
             for obs_path in obs_paths:
                 plt.plot(obs_path.x[1:], obs_path.y[1:], "-r")
                 plt.plot(obs_path.x[1], obs_path.y[1], "vc")
@@ -178,8 +198,7 @@ def main():
             plt.plot(path.x[1], path.y[1], "vc")
             plt.xlim(path.x[1] - area, path.x[1] + area)
             plt.ylim(path.y[1] - area, path.y[1] + area)
-            # plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {obs_speed * 3.6:.2f}")
-            plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}")
+            plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {Target_obs_speed * 3.6:.2f}")
             plt.grid(True)
             plt.pause(0.0001)
 
