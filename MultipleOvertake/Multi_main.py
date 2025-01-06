@@ -50,7 +50,7 @@ def main():
     csp.my = [y + 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     
  # initial state of obs vehicle
-    obs_s0 = [30.0, 60.0, 90.0] # current position
+    obs_s0 = [30.0, 67.0, 104.0] # current position
     Target_obs_speed = float(input("Enter obs speed in kmph:"))/3.6
     obs_speed =  [Target_obs_speed, Target_obs_speed, Target_obs_speed] # current speed [m/s]
     obs_acc= [0.0, 0.0, 0.0]  # current acceleration [m/ss]
