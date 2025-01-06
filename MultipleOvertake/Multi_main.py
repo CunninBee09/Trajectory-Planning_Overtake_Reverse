@@ -7,8 +7,8 @@ import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-from Overtake.multiple_ego_vehicle import parameter
-from obs_vehicle import obstacle_planning
+from MultipleOvertake.Multi_ego_vehicle import parameter
+from MultipleOvertake.Multi_obs_vehicle import obstacle_planning
 from utilis import *
 from CubicSplinePlanner import cubic_spline_planner
 from matplotlib.patches import Rectangle
