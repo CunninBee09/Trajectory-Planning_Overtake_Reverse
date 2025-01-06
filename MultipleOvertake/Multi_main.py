@@ -35,8 +35,13 @@ def main():
     
     # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
     # wy = [0.0, 0.0, 0.0, 0.0, 10.0, 15.0, 15.0, 10.0, -5.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0, 0.0]
-    wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
-    wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
+    wx = [i for i in range(0, 201, 5)]  # X-coordinates from 0 to 200 in steps of 5
+    wy = [5 * np.sin(0.05 * x) for x in wx]  # Y-coordinates using a sine wave
+
+
+
+    # wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
+    # wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
 
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
@@ -88,7 +93,7 @@ def main():
             print("Goal")
             break
         
-        
+        #postion update
         for j in range (len(obs_s0)):
             obs_s0[j] = obs_paths[j].s[1]
             obs_d[j] = obs_paths[j].d[1]
