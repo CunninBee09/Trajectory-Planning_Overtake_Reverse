@@ -15,7 +15,7 @@ from matplotlib.patches import Rectangle
 
 show_animation = True
 #path 1
-def generate_target_course1(x, y):
+def generate_target_course(x, y):
     csp = cubic_spline_planner.CubicSpline2D(x, y)
     s = np.arange(0, csp.s[-1], 0.1)
 
@@ -29,21 +29,6 @@ def generate_target_course1(x, y):
 
     return rx, ry, ryaw, rk, csp    
 
-#path 2
-def generate_target_course2(x, y):
-    csp = cubic_spline_planner.CubicSpline2D(x, y)
-    s = np.arange(0, csp.s[-1], 0.1)
-
-    rx, ry, ryaw, rk = [], [], [], []
-    for i_s in s:
-        ix, iy = csp.calc_position(i_s)
-        rx.append(ix)
-        ry.append(iy)
-        ryaw.append(csp.calc_yaw(i_s))
-        rk.append(csp.calc_curvature(i_s))
-
-    return rx, ry, ryaw, rk, csp
-    
 def main():
     print(__file__ + " start!!")
     # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
@@ -52,13 +37,13 @@ def main():
     wy = [5 * np.sin(0.05 * x) for x in wx]  # Y-coordinates using a sine wave
     # wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
     # wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
-    tx, ty, tyaw, tc, csp_1 = generate_target_course1(wx, wy)
+    tx, ty, tyaw, tc, csp_1 = generate_target_course(wx, wy)
     
     #for lane 2
     ax = [x + 5.0*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     ay = [y + 5.0*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     
-    px, py, tyaw, tc, csp_2 = generate_target_course2(ax, ay)
+    px, py, tyaw, tc, csp_2 = generate_target_course(ax, ay)
     
     
     area = 40.0
@@ -101,7 +86,7 @@ def main():
             print("Obstacle reached Goal first")
             break
         
-        path,fplist = parameter(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed)
+        path,fplist = parameter(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed,csp_1.uy,csp_1.ly)
         # path, fplist = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
         
         
