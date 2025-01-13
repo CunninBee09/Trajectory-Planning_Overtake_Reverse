@@ -119,10 +119,11 @@ class FrenetPath:
         self.c = []
         
 def calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V):
-    frenet_paths = []
+    frenet_paths_by_road_width = {}
 
     # generate path to each offset goal
     for di in np.arange(-MAX_ROAD_WIDTH,3*MAX_ROAD_WIDTH, D_ROAD_W):
+        frenet_paths_by_road_width[di]= []
 
         # Lateral motion planning
         for Ti in np.arange(MIN_T, MAX_T, DT):
@@ -138,8 +139,9 @@ def calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V):
             fp.d_ddd = [lat_qp.calc_third_derivative(t) for t in fp.t]
 
             # Longitudinal motion planning (Velocity keeping)
-            for tv in np.arange(V - D_T_S * N_S_SAMPLE,
-                                V + D_T_S * N_S_SAMPLE, D_T_S):
+            v_values = np.arange(V - (D_T_S * N_S_SAMPLE),V + (D_T_S * N_S_SAMPLE), D_T_S)
+            pos_V = [float(v) for v in v_values if v>=0]
+            for tv in pos_V:
                 tfp = copy.deepcopy(fp)
                 lon_qp = QuarticPolynomial(s0, c_speed, c_accel, tv, 0.0, Ti)
 
@@ -158,49 +160,41 @@ def calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V):
                 tfp.cv = K_J * Js + K_T * Ti + K_D * ds
                 tfp.cf = K_LAT * tfp.cd + K_LON * tfp.cv
 
-                frenet_paths.append(tfp)
+                frenet_paths_by_road_width[di].append(tfp)
 
-    return frenet_paths
-    # pass  # Keep the implementation from your original code
+    return frenet_paths_by_road_width
 
-def calc_global_paths(fplist, csp):
-    for fp in fplist:
+def calc_global_paths(fp_dict, csp):
+    for di, fplist in fp_dict.items(): 
+        for fp in fplist:
+            # calc global positions
+            for i in range(len(fp.s)):
+                ix, iy = csp.calc_position(fp.s[i])
+                if ix is None:
+                    break
+                i_yaw = csp.calc_yaw(fp.s[i])
+                di = fp.d[i]
+                fx = ix + di * math.cos(i_yaw + math.pi / 2.0)
+                fy = iy + di * math.sin(i_yaw + math.pi / 2.0)
+                fp.x.append(fx)
+                fp.y.append(fy)
+            # calc yaw and ds
+            for i in range(len(fp.x) - 1):
+                dx = fp.x[i + 1] - fp.x[i]
+                dy = fp.y[i + 1] - fp.y[i]
+                fp.yaw.append(math.atan2(dy, dx))
+                fp.ds.append(math.hypot(dx, dy))
+            if len(fp.yaw) == 1:
+                return None
+            else:
+                fp.yaw.append(fp.yaw[-1])
+                fp.ds.append(fp.ds[-1])
 
-        # calc global positions
-        for i in range(len(fp.s)):
-            ix, iy = csp.calc_position(fp.s[i])
-            if ix is None:
-                break
-            i_yaw = csp.calc_yaw(fp.s[i])
-            di = fp.d[i]
-            fx = ix + di * math.cos(i_yaw + math.pi / 2.0)
-            fy = iy + di * math.sin(i_yaw + math.pi / 2.0)
-            fp.x.append(fx)
-            fp.y.append(fy)
-
-        # calc yaw and ds
-        for i in range(len(fp.x) - 1):
-            dx = fp.x[i + 1] - fp.x[i]
-            dy = fp.y[i + 1] - fp.y[i]
-            fp.yaw.append(math.atan2(dy, dx))
-            fp.ds.append(math.hypot(dx, dy))
-
-        if len(fp.yaw) == 1:
-            return None
-        else:
-          fp.yaw.append(fp.yaw[-1])
-          fp.ds.append(fp.ds[-1])
-
-        # calc curvature
-        for i in range(len(fp.yaw) - 1):
-            fp.c.append((fp.yaw[i + 1] - fp.yaw[i]) / fp.ds[i])
+            # calc curvature
+            for i in range(len(fp.yaw) - 1):
+                fp.c.append((fp.yaw[i + 1] - fp.yaw[i]) / fp.ds[i])
             
-        # for fp in fplist:
-        #  plt.plot(fp.x, fp.y, '-g')  # Visualize all generated paths
-
-
-    return fplist
-    # pass
+    return fp_dict
 
 def check_collision(fp, obs_paths):
     d = []
@@ -210,7 +204,7 @@ def check_collision(fp, obs_paths):
             dy = ((fp.y[i] - obs_path.y[i]) ** 2)
             d.append(dx + dy)
 
-    collision= any([di <= (((0.7*ego_length)**2) + ((0.7*ego_width)**2)) for di in d])
+    collision= any([di <= (((0.5*ego_length)**2 + (0.5*ego_width)**2)+ ((0.5*obs_length)**2 + (0.5*obs_width)**2)) for di in d])
     
     if collision:
         return False
@@ -218,73 +212,64 @@ def check_collision(fp, obs_paths):
     return True
     # pass
 
-def check_paths(fplist, obs_paths,uy,ly):
-    ok_ind = []
-    if fplist is None:
+def check_paths(fp_dict, obs_paths):
+    if fp_dict is None:
         return None
-    else:
-        for i, _ in enumerate(fplist):
-            if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
-                 continue
-            elif any([abs(a) > MAX_EGO_ACCEL for a in
-                  fplist[i].s_dd]):  # Max accel check
-                 continue
-            # elif any((iy >= uy) for (iy,uy) in zip(fplist[i].y,uy)):
-            #      continue
-            # elif any((iy <= ly) for (iy,ly) in zip(fplist[i].y,ly)):
-            #      continue
-            elif any([abs(c) > MAX_CURVATURE for c in
-                  fplist[i].c]):  # Max curvature check
-                continue
-            elif not check_collision(fplist[i], obs_paths):
-                continue
-            
-            ok_ind.append(i)
-            
-            # else:
-            #     for obs_path in obs_paths:
-            #         if not check_collision(fplist[i],obs_path):
-            #            continue
-            #         else:
-            #            ok_ind.append(i)
-             
-            if not ok_ind:
-                print("All candidate paths failed constraints!")  
-            
-        return [fplist[i] for i in ok_ind]
-    # pass
 
-def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V,uy,ly):
-    fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V)
-    fplist = calc_global_paths(fplist, csp)
-    fplist = check_paths(fplist, obs_paths,uy,ly)
+    filtered_fp_dict = {}  # To store valid paths categorized by road width
+
+    for di, fplist in fp_dict.items():  # Iterate over the dictionary
+        ok_ind = []  # Indices of valid paths for the current road width
+
+        for i, fp in enumerate(fplist):
+            if any([v > MAX_EGO_SPEED for v in fp.s_d]):  # Max speed check
+                continue
+            elif any([abs(a) > MAX_EGO_ACCEL for a in fp.s_dd]):  # Max accel check
+                continue
+            elif any([abs(c) > MAX_CURVATURE for c in fp.c]):  # Max curvature check
+                continue
+            elif not check_collision(fp, obs_paths):  # Collision check
+                continue
+
+            ok_ind.append(i)
+
+        if ok_ind:
+            # Store only the valid paths for this road width
+            filtered_fp_dict[di] = [fplist[i] for i in ok_ind]
+
+    if not filtered_fp_dict:
+        print("All candidate paths failed constraints!")
+        return None
+
+    return filtered_fp_dict
+
+def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V):
+    fp_dict = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V)
+    fp_dict = calc_global_paths(fp_dict, csp)
+    fp_dict = check_paths(fp_dict, obs_paths)
     
-    if fplist is None:
+    if fp_dict is None:
         return None, None
     
-    fplist.sort(key=lambda x: x.cf)
-    
-    # find minimum cost path
+    sorted_dict = {}
     min_cost = float("inf")
     best_path = None
-    for fp in fplist:
-        if min_cost >= fp.cf:
-            min_cost = fp.cf
-            best_path = fp
+    for di,fplist in fp_dict.items():
+        sorted_dict[di] = sorted(fplist, key=lambda x: x.cf)
     
-     
-    # sorted_fplist = fplist.sort(key=lambda x: x.cf)
+        # find minimum cost path  
+        for fp in fplist:
+            if min_cost >= fp.cf:
+                min_cost = fp.cf
+                best_path = fp
+                
+    return best_path, sorted_dict
     
-    return best_path, fplist
-    
-def parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed,uy,ly):
-    # if any (obs_path.x[0] - s0 > 20 for obs_path in obs_paths):
-    #     V1 = Target_speed
-    #     path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V1)
-    if any (20 > obs_path.x[0] - s0 >=0 for obs_path in obs_paths):
+def parameter(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed,lanes, obs_s0):
+    if any ((20 > (obs_so - s0) >=0) and (lane == csp_1) for (obs_so,lane) in zip(obs_s0,lanes)):
         V1 = Target_speed + (20/3.6)
-        path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V1,uy,ly)
+        path, fp_dict= frenet_optimal_planning(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V1)
     else:
         V2 = Target_speed
-        path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V2,uy,ly)
-    return path, fplist
+        path, fp_dict= frenet_optimal_planning(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, V2)
+    return path, fp_dict

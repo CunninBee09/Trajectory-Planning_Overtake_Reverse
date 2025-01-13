@@ -161,7 +161,6 @@ def calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V):
                 frenet_paths.append(tfp)
 
     return frenet_paths
-    # pass  # Keep the implementation from your original code
 
 def calc_global_paths(fplist, csp):
     for fp in fplist:
@@ -195,12 +194,7 @@ def calc_global_paths(fplist, csp):
         for i in range(len(fp.yaw) - 1):
             fp.c.append((fp.yaw[i + 1] - fp.yaw[i]) / fp.ds[i])
             
-        # for fp in fplist:
-        #  plt.plot(fp.x, fp.y, '-g')  # Visualize all generated paths
-
-
     return fplist
-    # pass
 
 def check_collision(fp, obs_path):
     d = []
@@ -215,7 +209,6 @@ def check_collision(fp, obs_path):
         return False
 
     return True
-    # pass
 
 def check_paths(fplist, obs_path):
     ok_ind = []
@@ -225,26 +218,18 @@ def check_paths(fplist, obs_path):
         for i, _ in enumerate(fplist):
             if any([v > MAX_EGO_SPEED for v in fplist[i].s_d]):  # Max speed check
                  continue
-            elif any([abs(a) > MAX_EGO_ACCEL for a in
-                  fplist[i].s_dd]):  # Max accel check
+            elif any([abs(a) > MAX_EGO_ACCEL for a in fplist[i].s_dd]):  # Max accel check
                  continue
-             # elif any((iy >= (uy)) for (iy,uy) in zip(fplist[i].y,uy)):
-             #     continue
-             # elif any((iy <= (ly)) for (iy,ly) in zip(fplist[i].y,ly)):
-             #     continue
-            elif any([abs(c) > MAX_CURVATURE for c in
-                  fplist[i].c]):  # Max curvature check
+            elif any([abs(c) > MAX_CURVATURE for c in fplist[i].c]):  # Max curvature check
                 continue
             elif not check_collision(fplist[i], obs_path):
                 continue
-
             ok_ind.append(i)
         
             if not ok_ind:
               print("All candidate paths failed constraints!")  
 
         return [fplist[i] for i in ok_ind]
-    # pass
 
 def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V):
     fplist = calc_frenet_paths(c_speed, c_accel, c_d, c_d_d, c_d_dd, s0, V)
@@ -264,20 +249,13 @@ def frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_p
             min_cost = fp.cf
             best_path = fp
     
-     
-    # sorted_fplist = fplist.sort(key=lambda x: x.cf)
-    
     return best_path, fplist
     
-
-def parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, Target_speed):
-    if obs_path.x[0] - s0 > 20:
-        V1 = Target_speed
+def parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, Target_speed, obs_s0):
+    if 20 > obs_s0 - s0 >=0:
+        V1 = Target_speed + (20/3.6)
         path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V1)
-    elif 20 > obs_path.x[0] - s0 >=0:
-        V2 = Target_speed + (20/3.6)
-        path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V2)
     else:
-        V3 = Target_speed
-        path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V3)
+        V2 = Target_speed
+        path, fplist= frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, V2)
     return path, fplist

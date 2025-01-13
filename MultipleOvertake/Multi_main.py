@@ -31,22 +31,32 @@ def generate_target_course(x, y):
 
 def main():
     print(__file__ + " start!!")
-    # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
-    # wy = [0.0, 0.0, 0.0, 0.0, 10.0, 15.0, 15.0, 10.0, -5.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0, 0.0]
-    wx = [i for i in range(0, 301, 5)]  # X-coordinates from 0 to 200 in steps of 5
-    wy = [5 * np.sin(0.05 * x) for x in wx]  # Y-coordinates using a sine wave
-    # wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
-    # wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
+    
+    #Horizontal Straight
+    wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
+    wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
+    
+    #Horizontal Curve
+    # wx = [i for i in range(0, 301, 5)]
+    # wy = [5 * np.sin(0.05 * x) for x in wx]
+    
+    #vertical straight
+    # wy = [i for i in range(0, 301, 5)]
+    # wx = [0.0] * len(wy)
+    
+    #Vertical Curve
+    # wy = [i for i in range(0, 301, 5)]
+    # wx = [5*np.sin(0.05*y) for y in wy]
+    
     tx, ty, tyaw, tc, csp_1 = generate_target_course(wx, wy)
     
-    #for lane 2
+    #Way points for Lane 2
     ax = [x + 5.0*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     ay = [y + 5.0*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     
-    px, py, tyaw, tc, csp_2 = generate_target_course(ax, ay)
+    px, py, pyaw, pc, csp_2 = generate_target_course(ax, ay)
     
-    
-    area = 40.0
+    area = 30.0
     
     csp_1.ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     csp_1.uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
@@ -56,7 +66,7 @@ def main():
     csp_1.my = [y + 2.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
     
  # initial state of obs vehicle
-    obs_s0 = [30.0, 67.0, 104.0] # current position
+    obs_s0 = [50.0, 100.0, 150.0] # current position
     Target_obs_speed = float(input("Enter obs speed in kmph:"))/3.6
     obs_speed =  [Target_obs_speed, Target_obs_speed, Target_obs_speed] # current speed [m/s]
     obs_acc= [0.0, 0.0, 0.0]  # current acceleration [m/ss]
@@ -75,22 +85,24 @@ def main():
     
     for i in range(SIM_LOOP):
         obs_paths=[]
+        lanes = []
         for j in range(len(obs_s0)) :
             if j == 1:
-                obs_path = obstacle_planning(csp_2, obs_s0[j], obs_speed[j], obs_acc[j], obs_d[j], obs_d_d[j], obs_d_dd[j],Target_obs_speed)
+                lane = csp_2
             else:
-                obs_path = obstacle_planning(csp_1, obs_s0[j], obs_speed[j], obs_acc[j], obs_d[j], obs_d_d[j], obs_d_dd[j],Target_obs_speed)
+                lane = csp_1
+            obs_path = obstacle_planning(lane, obs_s0[j], obs_speed[j], obs_acc[j], obs_d[j], obs_d_d[j], obs_d_dd[j],Target_obs_speed)
+            lanes.append(lane)
             obs_paths.append(obs_path)
         
-        if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1]-ty[-1]) <=10.0:
+        if np.hypot(obs_path.x[1] - tx[-1], obs_path.y[1]-ty[-1]) <=3.0:
             print("Obstacle reached Goal first")
             break
         
-        path,fplist = parameter(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed,csp_1.uy,csp_1.ly)
-        # path, fplist = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
-        
-        
+        path,fp_dict = parameter(csp_1, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_paths, Target_speed,lanes, obs_s0)
+                
         if path is None:
+            print("No valid path found for ego vehicle!")
             break
         
         if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 0.0:
@@ -106,12 +118,7 @@ def main():
             obs_speed[j] = obs_paths[j].s_d[1]
             obs_acc[j] = obs_paths[j].s_dd[1]
         
-        
-        # path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, uy)
-        # if path is None:
-        #     print("No valid path found for ego vehicle!")
-        #     break
-        
+        #Updating Current Values of Ego_Vehicle
         s0 = path.s[1]
         c_d = path.d[1]
         c_d_d = path.d_d[1]
@@ -119,11 +126,6 @@ def main():
         c_speed = path.s_d[1]
         c_accel = path.s_dd[1]
         
-        # plt.figure()
-        # for i, path in enumerate(fplist[:10]):
-        #   plt.plot(path.x, path.y, label=f"Path {i} (Cost: {path.cf:.2f})")
-
-
         if show_animation:  # pragma: no cover
             plt.cla()
             plt.axis('equal')
@@ -150,8 +152,12 @@ def main():
             plt.gca().add_patch(ego_vehicle)
             
             # Plot the top 10 paths
-            for i, fp in enumerate(fplist[:10]):  # Only plot the top 10 paths
-               plt.plot(fp.x, fp.y, label=f"Path {i + 1} (Cost: {fp.cf:.4f})", linestyle="--")
+            for di, fplist in fp_dict.items():
+                if fplist is None:
+                    continue# Only plot the top 10 paths
+                else:
+                    for i,fp in enumerate(fplist[:1]):
+                        plt.plot(fp.x, fp.y, label=f"Path {i + 1} (Cost: {fp.cf:.4f})", linestyle="--", color = "blue", alpha = 0.5)
                
             # Draw obstacle vehicle as a rectangle
             for obs_path in obs_paths :
@@ -168,32 +174,35 @@ def main():
             
                 plt.gca().add_patch(obs_vehicle)
             
-            
+            #Plotting
+            plt.figure(1)
             plt.plot(tx, ty)
             plt.plot(px,py)
             plt.plot(csp_1.ux, csp_1.uy, '-k')
             plt.plot(csp_1.lx, csp_1.ly, '-k')
             plt.plot(csp_1.mx, csp_1.my, '--k')
             for obs_path in obs_paths:
+                # print("obs_s0 position is",obs_s0)
+                # print("obs_path values are",obs_path.x[1], obs_path.y[1])
                 plt.plot(obs_path.x[1:], obs_path.y[1:], "-r")
                 plt.plot(obs_path.x[1], obs_path.y[1], "vc")
                 plt.xlim(obs_path.x[1] - area, obs_path.x[1] + area)
                 plt.ylim(obs_path.y[1] - area, obs_path.y[1] + area)
+            # print("path values are",path.x[1], path.y[1])
+            # print("s0 position is",s0)
             plt.plot(path.x[1:], path.y[1:], "-r")
             plt.plot(path.x[1], path.y[1], "vc")
             plt.xlim(path.x[1] - area, path.x[1] + area)
             plt.ylim(path.y[1] - area, path.y[1] + area)
-            plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {Target_obs_speed * 3.6:.2f}")
+            plt.title(f"Ego v[km/h]: {c_speed * 3.6:.2f}, Obs v[km/h]: {Target_obs_speed * 3.6:.2f}")         
             plt.grid(True)
             plt.pause(0.0001)
-
 
     print("Finish")
     if show_animation:  # pragma: no cover
         plt.grid(True)
         plt.pause(0.0001)
         plt.show()
-
 
 if __name__ == '__main__':
     main()

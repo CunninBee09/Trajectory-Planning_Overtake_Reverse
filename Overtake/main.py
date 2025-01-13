@@ -26,20 +26,30 @@ def generate_target_course(x, y):
         ry.append(iy)
         ryaw.append(csp.calc_yaw(i_s))
         rk.append(csp.calc_curvature(i_s))
-
+        
     return rx, ry, ryaw, rk, csp
 
-    
 def main():
     print(__file__ + " start!!")
+    #Horizontal Straight
+    # wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
+    # wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
     
-    # wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
-    # wy = [0.0, 0.0, 0.0, 0.0, 10.0, 15.0, 15.0, 10.0, -5.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0, 0.0]
-    wx = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0]
-    wy = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #Horizontal Curve
+    # wx = [i for i in range(0, 301, 5)]
+    # wy = [5 * np.sin(0.05 * x) for x in wx]
+    
+    #vertical straight
+    wy = [i for i in range(0, 301, 5)]
+    wx = [0.0] * len(wy)
+    
+    #Vertical Curve
+    # wy = [i for i in range(0, 301, 5)]
+    # wx = [5*np.sin(0.05*y) for y in wy]
+    
     tx, ty, tyaw, tc, csp = generate_target_course(wx, wy)
     
-    area = 50.0
+    area = 40.0
     
     csp.ux = [x + 7.5*math.cos(i_yaw + math.pi / 2.0) for x,i_yaw in zip(tx,tyaw) ]
     csp.uy = [y + 7.5*math.sin(i_yaw + math.pi / 2.0) for y,i_yaw in zip(ty,tyaw) ]
@@ -66,6 +76,9 @@ def main():
     c_d_dd = 0.0  # current lateral acceleration [m/s]
     s0 = 0.0  # current course position
     
+    distances = []
+    ego_speed = []
+    
     for i in range(SIM_LOOP):
         
         obs_path = obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd,Target_obs_speed)
@@ -74,18 +87,19 @@ def main():
             print("Obstacle reached Goal first")
             break
         
-        path,fplist = parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, Target_speed)
-        # path, fplist = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, csp.uy ,csp.ly)
-        
+        path,fplist = parameter(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, Target_speed, obs_s0)
         
         if path is None:
+            print("No valid path found for ego vehicle!")
             break
         
         if np.hypot(path.x[1] - tx[-1], path.y[1] - ty[-1]) <= 0.0:
             print("Goal")
             break
         
-        
+        distance = s0 - obs_s0 # obstacle distance with ego vehicle
+        distances.append(distance) 
+        ego_speed.append(c_speed*3.6)
         
         obs_s0 = obs_path.s[1]
         obs_d = obs_path.d[1]
@@ -94,22 +108,12 @@ def main():
         obs_speed = obs_path.s_d[1]
         obs_acc = obs_path.s_dd[1]
         
-        # path = frenet_optimal_planning(csp, s0, c_speed, c_accel, c_d, c_d_d, c_d_dd, obs_path, uy)
-        # if path is None:
-        #     print("No valid path found for ego vehicle!")
-        #     break
-        
         s0 = path.s[1]
         c_d = path.d[1]
         c_d_d = path.d_d[1]
         c_d_dd = path.d_dd[1]
         c_speed = path.s_d[1]
         c_accel = path.s_dd[1]
-        
-        # plt.figure()
-        # for i, path in enumerate(fplist[:10]):
-        #   plt.plot(path.x, path.y, label=f"Path {i} (Cost: {path.cf:.2f})")
-
 
         if show_animation:  # pragma: no cover
             plt.cla()
@@ -154,7 +158,8 @@ def main():
             
             plt.gca().add_patch(obs_vehicle)
             
-            
+            #Plotting
+            plt.figure(1)
             plt.plot(tx, ty)
             plt.plot(csp.ux, csp.uy, '-k')
             plt.plot(csp.lx, csp.ly, '-k')
@@ -171,13 +176,19 @@ def main():
             plt.grid(True)
             plt.pause(0.0001)
 
-
     print("Finish")
+    plt.figure(2)
+    plt.plot(distances, ego_speed, marker='o', linestyle='-', color='b', label="Ego Vehicle Velocity")
+    plt.title("Ego Vehicle Velocity vs. Distance to Obstacle", fontsize=14)
+    plt.xlabel("Distance Between Ego and Obstacle (m)", fontsize=12)
+    plt.ylabel("Ego Vehicle Velocity (km/hr)", fontsize=12)
+    plt.grid(True)
+    plt.legend(fontsize=10)
+    plt.show()
     if show_animation:  # pragma: no cover
         plt.grid(True)
         plt.pause(0.0001)
         plt.show()
-
 
 if __name__ == '__main__':
     main()

@@ -21,6 +21,6 @@ ROBOT_RADIUS = 5.0# robot radius [m]
 # cost weights
 K_J = 0.1
 K_T = 0.1
-K_D = 1.5      
-K_LAT = 1
-K_LON = 0.5
+K_D =1   
+K_LAT = 0.5
+K_LON = 1.5

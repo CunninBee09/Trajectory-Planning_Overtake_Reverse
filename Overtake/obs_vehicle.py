@@ -18,7 +18,6 @@ def obstacle_planning(csp, obs_s0, obs_speed, obs_acc, obs_d, obs_d_d, obs_d_dd,
             best_obs_path = ob
 
     return best_obs_path
-    # pass  # Keep the implementation from your original code
 
 def check_obs_paths(obslist):
     ok_ind = []
@@ -31,10 +30,7 @@ def check_obs_paths(obslist):
         elif any([abs(c) > MAX_CURVATURE for c in
                   obslist[i].c]):  # Max curvature check
             continue
-        # elif not check_collision(fplist[i], ob):
-        #     continue
 
         ok_ind.append(i)
 
     return [obslist[i] for i in ok_ind]
-    pass  # Keep the implementation from your original code
