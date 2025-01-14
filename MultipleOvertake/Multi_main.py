@@ -184,7 +184,7 @@ def main():
             for obs_path in obs_paths:
                 # print("obs_s0 position is",obs_s0)
                 # print("obs_path values are",obs_path.x[1], obs_path.y[1])
-                plt.plot(obs_path.x[1:], obs_path.y[1:], "-r")
+                plt.plot(obs_path.x[1:], obs_path.y[1:], "-g")
                 plt.plot(obs_path.x[1], obs_path.y[1], "vc")
                 plt.xlim(obs_path.x[1] - area, obs_path.x[1] + area)
                 plt.ylim(obs_path.y[1] - area, obs_path.y[1] + area)

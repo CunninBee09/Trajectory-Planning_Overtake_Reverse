@@ -7,8 +7,6 @@ import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-from FrenetOptimalTrajectory.frenet_optimal_trajectory import \
-    frenet_optimal_planning
 from utilis import *
 
 # from CubicSplinePlanner import cubic_spline_planner
