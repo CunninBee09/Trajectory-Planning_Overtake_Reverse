@@ -13,7 +13,7 @@ DT = 0.2  # time tick [s]
 MAX_T = 4.4  # max prediction time [m]
 MIN_T = 4.0  # min prediction time [m]
 D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
-N_S_SAMPLE =10# sampling number of target speed
+N_S_SAMPLE =6# sampling number of target speed
 ego_length = 5 #car_length [m]
 ego_width = 2 #car_width [m]
 

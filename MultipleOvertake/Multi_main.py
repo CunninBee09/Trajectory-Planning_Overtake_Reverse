@@ -33,12 +33,12 @@ def main():
     print(__file__ + " start!!")
     
     #Horizontal Straight
-    wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
-    wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
+    # wx = [i for i in range(0, 301, 10)]  # x-coordinates from 0 to 200 in steps of 10
+    # wy = [0.0] * len(wx)  # y-coordinates remain constant (straight path)
     
     #Horizontal Curve
-    # wx = [i for i in range(0, 301, 5)]
-    # wy = [5 * np.sin(0.05 * x) for x in wx]
+    wx = [i for i in range(0, 301, 5)]
+    wy = [5 * np.sin(0.05 * x) for x in wx]
     
     #vertical straight
     # wy = [i for i in range(0, 301, 5)]
